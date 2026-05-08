@@ -13,8 +13,6 @@ services:
       # Use anonymous volumes to prevent local node_modules & .next from overriding the container's
       - /app/node_modules
       - /app/.next
-      # Map the physical storage pool to the container
-      - '/mnt/family_data:/app/storage'
     environment:
       - NODE_ENV=development
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://192.168.56.101:8080/api}
@@ -28,8 +26,6 @@ services:
       - "8080:8000" # Changed host port to 8080 because Coolify dashboard uses 8000
     volumes:
       - ./backend:/app
-      # This is critical: the backend actually writes the files, so it needs the volume!
-      - '/mnt/family_data:/app/storage'
     environment:
       - POSTGRES_DB=hanacloud
       - POSTGRES_USER=postgres
