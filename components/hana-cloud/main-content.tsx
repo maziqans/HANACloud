@@ -122,7 +122,7 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
   const files = currentItems.filter((item) => item.item_type === "FILE")
 
   const handleDownload = (id: string) => {
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api"
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api"
     const link = document.createElement("a")
     link.href = `${baseUrl}/download/${id}/`
     link.target = "_blank"

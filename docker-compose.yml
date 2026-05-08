@@ -13,6 +13,40 @@ services:
       # Use anonymous volumes to prevent local node_modules & .next from overriding the container's
       - /app/node_modules
       - /app/.next
+      # Map the physical storage pool to the container
+      - '/mnt/family_data:/app/storage'
     environment:
       - NODE_ENV=development
-      - NEXT_PUBLIC_API_URL=http://localhost:8000/api
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://192.168.56.101:8080/api}
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: ./backend # Make sure your Django code is in a folder named 'backend'
+    ports:
+      - "8080:8000" # Changed host port to 8080 because Coolify dashboard uses 8000
+    volumes:
+      - ./backend:/app
+      # This is critical: the backend actually writes the files, so it needs the volume!
+      - '/mnt/family_data:/app/storage'
+    environment:
+      - POSTGRES_DB=hanacloud
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+    depends_on:
+      - db
+
+  db:
+    image: postgres:15-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=hanacloud
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+
+volumes:
+  postgres_data:
