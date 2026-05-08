@@ -6,7 +6,7 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "3001:3000" # Changed host port to 3001 to bypass the stuck container
     # Workaround for Coolify bug: Initialize an empty array
     volumes: []
     environment:
