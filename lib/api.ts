@@ -31,4 +31,26 @@ export const moveToTrash = async (itemId: string) => {
   return response.data;
 };
 
+export const updateProfile = async (formData: FormData) => {
+  const response = await apiClient.post('/profile/', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return response.data;
+};
+
+export const getStorageInfo = async () => {
+  const response = await apiClient.get('/storage/');
+  return response.data;
+};
+
+export const requestStorage = async (reason: string) => {
+  const response = await apiClient.post('/storage/request/', { reason });
+  return response.data;
+};
+
+export const deleteAccount = async () => {
+  const response = await apiClient.delete('/account/');
+  return response.data;
+};
+
 export default apiClient;

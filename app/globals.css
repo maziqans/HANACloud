@@ -40,12 +40,12 @@
   /* Sidebar - Deep navy with rich golden accents */
   --sidebar: oklch(0.20 0.045 255);
   --sidebar-foreground: oklch(0.98 0.005 80);
-  --sidebar-primary: oklch(0.68 0.14 70); /* Deep rich gold */
+  --sidebar-primary: oklch(0.80 0.14 80); /* Lighter gold */
   --sidebar-primary-foreground: oklch(0.15 0.04 255);
   --sidebar-accent: oklch(0.28 0.04 255);
   --sidebar-accent-foreground: oklch(0.95 0.005 80);
   --sidebar-border: oklch(0.28 0.04 255);
-  --sidebar-ring: oklch(0.68 0.14 70);
+  --sidebar-ring: oklch(0.80 0.14 80);
   --sidebar-muted: oklch(0.72 0.015 250);
   
   /* Cozy Custom Variables */
@@ -247,16 +247,16 @@
     0 8px 32px oklch(0 0 0 / 0.2);
 }
 
-/* Golden button for sidebar - deeper rich gold */
+/* Golden button for sidebar - lighter gold */
 .golden-button {
   background: linear-gradient(
     180deg,
-    oklch(0.70 0.14 70) 0%,
-    oklch(0.62 0.14 65) 100%
+    oklch(0.82 0.14 80) 0%,
+    oklch(0.75 0.14 75) 100%
   );
   box-shadow: 
     0 1px 2px oklch(0 0 0 / 0.25),
-    0 2px 8px oklch(0.68 0.14 70 / 0.35),
+    0 2px 8px oklch(0.80 0.14 80 / 0.35),
     inset 0 1px 0 oklch(1 0 0 / 0.12);
   transition: all 200ms ease;
 }
@@ -264,19 +264,19 @@
 .golden-button:hover {
   background: linear-gradient(
     180deg,
-    oklch(0.72 0.15 70) 0%,
-    oklch(0.64 0.14 65) 100%
+    oklch(0.85 0.15 80) 0%,
+    oklch(0.78 0.14 75) 100%
   );
   box-shadow: 
     0 2px 4px oklch(0 0 0 / 0.3),
-    0 4px 16px oklch(0.68 0.14 70 / 0.45),
+    0 4px 16px oklch(0.80 0.14 80 / 0.45),
     inset 0 1px 0 oklch(1 0 0 / 0.15);
   transform: translateY(-1px);
 }
 
-/* Dark sidebar nav active - deep gold */
+/* Dark sidebar nav active - lighter gold */
 .nav-dark-active {
-  background: oklch(0.68 0.14 70 / 0.12);
+  background: oklch(0.80 0.14 80 / 0.12);
 }
 
 .nav-dark-active::before {
@@ -286,16 +286,16 @@
   top: 8px;
   bottom: 8px;
   width: 3px;
-  background: oklch(0.68 0.14 70);
+  background: oklch(0.80 0.14 80);
   border-radius: 0 4px 4px 0;
 }
 
-/* Golden progress bar - rich tone */
+/* Golden progress bar - lighter tone */
 .progress-golden {
   background: linear-gradient(
     90deg,
-    oklch(0.68 0.14 70) 0%,
-    oklch(0.60 0.12 60) 100%
+    oklch(0.80 0.14 80) 0%,
+    oklch(0.72 0.12 70) 100%
   );
 }
 

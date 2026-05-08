@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Sidebar } from "@/components/hana-cloud/sidebar"
 import { MainContent } from "@/components/hana-cloud/main-content"
+import { SettingsContent } from "@/components/hana-cloud/settings-content"
 
 export default function HANACloudPage() {
   const [activeSection, setActiveSection] = useState("My Drive")
@@ -13,7 +14,11 @@ export default function HANACloudPage() {
         activeItem={activeSection}
         onNavigate={setActiveSection}
       />
-      <MainContent activeSection={activeSection} />
+      {activeSection === "Settings" ? (
+        <SettingsContent />
+      ) : (
+        <MainContent activeSection={activeSection} />
+      )}
     </div>
   )
 }

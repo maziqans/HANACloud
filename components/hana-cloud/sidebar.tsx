@@ -65,7 +65,7 @@ export function Sidebar({ onNavigate, activeItem = "My Drive" }: SidebarProps) {
           />
           <div>
             <h1 className="text-lg font-semibold text-sidebar-foreground tracking-tight">
-              HanaCloud
+              HANACloud
             </h1>
             <p className="text-xs text-sidebar-muted">
               Your private storage
@@ -152,10 +152,10 @@ export function Sidebar({ onNavigate, activeItem = "My Drive" }: SidebarProps) {
             </div>
             <div className="flex-1 min-w-0 text-left">
               <p className="text-sm font-medium text-sidebar-foreground truncate">
-                Alex Harper
+                Ammar Haziq
               </p>
               <p className="text-xs text-sidebar-muted truncate">
-                alex@hanacloud.io
+                ammar@hanacloud.io
               </p>
             </div>
             <ChevronDown className={cn(
@@ -171,7 +171,13 @@ export function Sidebar({ onNavigate, activeItem = "My Drive" }: SidebarProps) {
                 <User className="w-4 h-4 text-sidebar-muted" strokeWidth={1.5} />
                 <span className="text-sm">Profile Settings</span>
               </button>
-              <button className="w-full px-4 py-3 flex items-center gap-3 text-sidebar-foreground hover:bg-sidebar-accent transition-colors text-left">
+              <button 
+                onClick={() => {
+                  onNavigate?.("Settings");
+                  setProfileOpen(false);
+                }}
+                className="w-full px-4 py-3 flex items-center gap-3 text-sidebar-foreground hover:bg-sidebar-accent transition-colors text-left"
+              >
                 <Settings className="w-4 h-4 text-sidebar-muted" strokeWidth={1.5} />
                 <span className="text-sm">Account Settings</span>
               </button>
