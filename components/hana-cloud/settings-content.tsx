@@ -2,10 +2,14 @@
 
 import { useState, useEffect } from "react"
 import * as api from "@/lib/api"
-import { User, HardDrive, ShieldAlert, Upload } from "lucide-react"
+import { User, HardDrive, ShieldAlert, Upload, Image, Film, FileText, File } from "lucide-react"
 
-export function SettingsContent() {
-  const [storageInfo, setStorageInfo] = useState({ used_bytes: 0, total_bytes: 1 })
+export function SettingsContent({ activeSection = "Profile Settings" }: { activeSection?: string }) {
+  const [storageInfo, setStorageInfo] = useState({ 
+    used_bytes: 0, 
+    total_bytes: 1,
+    breakdown: { videos: 0, images: 0, documents: 0, others: 0 }
+  })
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
 
@@ -61,7 +65,15 @@ export function SettingsContent() {
     }
   }
 
-  const storagePercentage = Math.min(100, (storageInfo.used_bytes / storageInfo.total_bytes) * 100)
+  const breakdown = storageInfo.breakdown || { videos: 0, images: 0, documents: 0, others: 0 }
+  const vidPct = (breakdown.videos / storageInfo.total_bytes) * 100
+  const imgPct = (breakdown.images / storageInfo.total_bytes) * 100
+  const docPct = (breakdown.documents / storageInfo.total_bytes) * 100
+  const othPct = (breakdown.others / storageInfo.total_bytes) * 100
+
+  const showProfile = activeSection === "Profile Settings" || activeSection === "Settings"
+  const showStorage = activeSection === "Storage Management"
+  const showSecurity = activeSection === "Security Settings"
 
   return (
     <main className="flex-1 flex flex-col min-h-screen overflow-auto bg-background">
@@ -75,6 +87,7 @@ export function SettingsContent() {
       <div className="max-w-4xl mx-auto w-full p-8 space-y-8">
         
         {/* Profile Settings */}
+        {showProfile && (
         <section className="bg-card rounded-2xl border border-border p-6 cozy-shadow">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2 bg-primary/10 rounded-lg"><User className="w-5 h-5 text-primary" /></div>
@@ -110,8 +123,10 @@ export function SettingsContent() {
             <button type="submit" className="cozy-button text-primary-foreground px-6 py-2.5 rounded-xl font-medium text-sm">Save Changes</button>
           </form>
         </section>
+        )}
 
         {/* Storage Management */}
+        {showStorage && (
         <section className="bg-card rounded-2xl border border-border p-6 cozy-shadow">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2 bg-primary/10 rounded-lg"><HardDrive className="w-5 h-5 text-primary" /></div>
@@ -123,7 +138,30 @@ export function SettingsContent() {
               <span className="font-medium">{formatBytes(storageInfo.used_bytes)} / {formatBytes(storageInfo.total_bytes)}</span>
             </div>
             <div className="h-3 w-full bg-secondary rounded-full overflow-hidden border border-border/50">
-              <div className="h-full progress-golden transition-all duration-500" style={{ width: `${storagePercentage}%` }} />
+              <div className="flex h-full w-full">
+                <div className="h-full bg-blue-500 transition-all duration-500" style={{ width: `${vidPct}%` }} title="Videos" />
+                <div className="h-full bg-purple-500 transition-all duration-500" style={{ width: `${imgPct}%` }} title="Images" />
+                <div className="h-full bg-green-500 transition-all duration-500" style={{ width: `${docPct}%` }} title="Documents" />
+                <div className="h-full bg-gray-400 transition-all duration-500" style={{ width: `${othPct}%` }} title="Others" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center"><Film className="w-4 h-4 text-blue-500" /></div>
+                <div><p className="text-xs font-medium">Videos</p><p className="text-xs text-muted-foreground">{formatBytes(breakdown.videos)}</p></div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center"><Image className="w-4 h-4 text-purple-500" /></div>
+                <div><p className="text-xs font-medium">Images</p><p className="text-xs text-muted-foreground">{formatBytes(breakdown.images)}</p></div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center"><FileText className="w-4 h-4 text-green-500" /></div>
+                <div><p className="text-xs font-medium">Documents</p><p className="text-xs text-muted-foreground">{formatBytes(breakdown.documents)}</p></div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-gray-400/10 flex items-center justify-center"><File className="w-4 h-4 text-gray-500" /></div>
+                <div><p className="text-xs font-medium">Others</p><p className="text-xs text-muted-foreground">{formatBytes(breakdown.others)}</p></div>
+              </div>
             </div>
             <div className="pt-4">
               <p className="text-sm text-muted-foreground mb-3">Running out of space? Request a quota increase from the system administrator.</p>
@@ -133,8 +171,10 @@ export function SettingsContent() {
             </div>
           </div>
         </section>
+        )}
 
         {/* Security Settings */}
+        {showSecurity && (
         <section className="bg-card rounded-2xl border border-destructive/20 p-6 cozy-shadow">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2 bg-destructive/10 rounded-lg"><ShieldAlert className="w-5 h-5 text-destructive" /></div>
@@ -145,6 +185,7 @@ export function SettingsContent() {
             Delete Account
           </button>
         </section>
+        )}
 
       </div>
     </main>

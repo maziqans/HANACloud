@@ -16,6 +16,12 @@ def storage_info(request):
     return Response({
         "used_bytes": 1024 * 1024 * 1024 * 500, # 500GB mock usage
         "total_bytes": 1024 * 1024 * 1024 * 1024 * 5.5, # 5.5TB total capacity
+        "breakdown": {
+            "videos": 1024 * 1024 * 1024 * 250,    # 250GB
+            "images": 1024 * 1024 * 1024 * 150,    # 150GB
+            "documents": 1024 * 1024 * 1024 * 50,  # 50GB
+            "others": 1024 * 1024 * 1024 * 50,     # 50GB
+        }
     })
 
 @api_view(['POST'])

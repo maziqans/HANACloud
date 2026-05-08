@@ -16,6 +16,8 @@ import {
   Settings,
   LogOut,
   User,
+  ShieldAlert,
+  ArrowLeft,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -30,6 +32,12 @@ const navItems: NavItem[] = [
   { icon: Clock, label: "Recent" },
   { icon: Star, label: "Starred" },
   { icon: Trash2, label: "Trash" },
+]
+
+const settingsItems: NavItem[] = [
+  { icon: User, label: "Profile Settings" },
+  { icon: HardDrive, label: "Storage Management" },
+  { icon: ShieldAlert, label: "Security Settings" },
 ]
 
 interface SidebarProps {
@@ -52,6 +60,9 @@ export function Sidebar({ onNavigate, activeItem = "My Drive" }: SidebarProps) {
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
+
+  const isSettingsMode = ["Profile Settings", "Storage Management", "Security Settings", "Settings"].includes(activeItem)
+  const currentNavItems = isSettingsMode ? settingsItems : navItems
 
   return (
     <aside className="w-64 h-screen flex flex-col bg-sidebar border-r border-sidebar-border">
@@ -76,46 +87,58 @@ export function Sidebar({ onNavigate, activeItem = "My Drive" }: SidebarProps) {
 
       {/* Add New Button - Golden */}
       <div className="px-4 pb-4 relative">
-        <button
-          onClick={() => setDropdownOpen(!dropdownOpen)}
-          className="w-full golden-button rounded-xl px-4 py-3 flex items-center gap-2.5 text-sidebar-primary-foreground transition-cozy"
-        >
-          <Plus className="w-4 h-4" strokeWidth={2.5} />
-          <span className="text-sm font-semibold">Add new</span>
-          <ChevronDown className={cn(
-            "w-4 h-4 ml-auto opacity-80 transition-transform duration-200",
-            dropdownOpen && "rotate-180"
-          )} strokeWidth={2} />
-        </button>
+        {isSettingsMode ? (
+          <button
+            onClick={() => onNavigate?.("My Drive")}
+            className="w-full bg-sidebar-accent/50 hover:bg-sidebar-accent text-sidebar-foreground rounded-xl px-4 py-3 flex items-center gap-2.5 transition-cozy"
+          >
+            <ArrowLeft className="w-4 h-4" strokeWidth={2} />
+            <span className="text-sm font-medium">Back to My Drive</span>
+          </button>
+        ) : (
+          <>
+            <button
+              onClick={() => setDropdownOpen(!dropdownOpen)}
+              className="w-full golden-button rounded-xl px-4 py-3 flex items-center gap-2.5 text-sidebar-primary-foreground transition-cozy"
+            >
+              <Plus className="w-4 h-4" strokeWidth={2.5} />
+              <span className="text-sm font-semibold">Add new</span>
+              <ChevronDown className={cn(
+                "w-4 h-4 ml-auto opacity-80 transition-transform duration-200",
+                dropdownOpen && "rotate-180"
+              )} strokeWidth={2} />
+            </button>
 
-        {/* Dropdown Menu - Dark theme */}
-        {dropdownOpen && (
-          <div className="absolute left-4 right-4 top-full mt-2 z-50 dropdown-dark rounded-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
-            <button className="w-full px-4 py-3 flex items-center gap-3 text-sidebar-foreground hover:bg-sidebar-accent transition-colors text-left">
-              <div className="w-8 h-8 rounded-lg bg-sidebar-primary/20 flex items-center justify-center">
-                <FolderPlus className="w-4 h-4 text-sidebar-primary" strokeWidth={2} />
+            {/* Dropdown Menu - Dark theme */}
+            {dropdownOpen && (
+              <div className="absolute left-4 right-4 top-full mt-2 z-50 dropdown-dark rounded-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                <button className="w-full px-4 py-3 flex items-center gap-3 text-sidebar-foreground hover:bg-sidebar-accent transition-colors text-left">
+                  <div className="w-8 h-8 rounded-lg bg-sidebar-primary/20 flex items-center justify-center">
+                    <FolderPlus className="w-4 h-4 text-sidebar-primary" strokeWidth={2} />
+                  </div>
+                  <span className="text-sm font-medium">New Folder</span>
+                </button>
+                <button className="w-full px-4 py-3 flex items-center gap-3 text-sidebar-foreground hover:bg-sidebar-accent transition-colors text-left">
+                  <div className="w-8 h-8 rounded-lg bg-sidebar-primary/20 flex items-center justify-center">
+                    <Upload className="w-4 h-4 text-sidebar-primary" strokeWidth={2} />
+                  </div>
+                  <span className="text-sm font-medium">File Upload</span>
+                </button>
+                <button className="w-full px-4 py-3 flex items-center gap-3 text-sidebar-foreground hover:bg-sidebar-accent transition-colors text-left">
+                  <div className="w-8 h-8 rounded-lg bg-sidebar-primary/20 flex items-center justify-center">
+                    <FolderInput className="w-4 h-4 text-sidebar-primary" strokeWidth={2} />
+                  </div>
+                  <span className="text-sm font-medium">Import Folder</span>
+                </button>
               </div>
-              <span className="text-sm font-medium">New Folder</span>
-            </button>
-            <button className="w-full px-4 py-3 flex items-center gap-3 text-sidebar-foreground hover:bg-sidebar-accent transition-colors text-left">
-              <div className="w-8 h-8 rounded-lg bg-sidebar-primary/20 flex items-center justify-center">
-                <Upload className="w-4 h-4 text-sidebar-primary" strokeWidth={2} />
-              </div>
-              <span className="text-sm font-medium">File Upload</span>
-            </button>
-            <button className="w-full px-4 py-3 flex items-center gap-3 text-sidebar-foreground hover:bg-sidebar-accent transition-colors text-left">
-              <div className="w-8 h-8 rounded-lg bg-sidebar-primary/20 flex items-center justify-center">
-                <FolderInput className="w-4 h-4 text-sidebar-primary" strokeWidth={2} />
-              </div>
-              <span className="text-sm font-medium">Import Folder</span>
-            </button>
-          </div>
+            )}
+          </>
         )}
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-2">
-        {navItems.map((item) => {
+        {currentNavItems.map((item) => {
           const Icon = item.icon
           const isActive = item.label === activeItem
           return (
@@ -167,13 +190,9 @@ export function Sidebar({ onNavigate, activeItem = "My Drive" }: SidebarProps) {
           {/* Profile Dropdown */}
           {profileOpen && (
             <div className="absolute left-0 right-0 bottom-full mb-2 z-50 dropdown-dark rounded-xl overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-150">
-              <button className="w-full px-4 py-3 flex items-center gap-3 text-sidebar-foreground hover:bg-sidebar-accent transition-colors text-left">
-                <User className="w-4 h-4 text-sidebar-muted" strokeWidth={1.5} />
-                <span className="text-sm">Profile Settings</span>
-              </button>
               <button 
                 onClick={() => {
-                  onNavigate?.("Settings");
+                  onNavigate?.("Profile Settings");
                   setProfileOpen(false);
                 }}
                 className="w-full px-4 py-3 flex items-center gap-3 text-sidebar-foreground hover:bg-sidebar-accent transition-colors text-left"
