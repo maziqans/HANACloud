@@ -76,31 +76,29 @@ export function SettingsContent({ activeSection = "Profile Settings" }: { active
   const showSecurity = activeSection === "Security Settings"
 
   return (
-    <main className="flex-1 flex flex-col min-h-screen overflow-auto bg-background">
-      <header className="px-8 py-6 border-b border-border bg-card/50">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Account Settings</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage your profile, storage, and security preferences.</p>
+    <main className="flex-1 flex flex-col min-h-screen overflow-auto bg-background animate-in fade-in duration-700">
+      <div className="max-w-4xl w-full mx-auto px-8 py-10 space-y-12">
+        
+        {/* Page Header (Sleek & Modern) */}
+        <div className="mb-10">
+          <h1 className="text-4xl font-light tracking-tight text-foreground">Account Settings</h1>
+          <p className="text-muted-foreground mt-2">Manage your profile, storage, and security preferences.</p>
         </div>
-      </header>
-
-      <div className="max-w-4xl mx-auto w-full p-8 space-y-8">
         
         {/* Profile Settings */}
         {showProfile && (
-        <section className="bg-card rounded-2xl border border-border p-6 cozy-shadow">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-primary/10 rounded-lg"><User className="w-5 h-5 text-primary" /></div>
-            <h2 className="text-lg font-semibold">Profile Settings</h2>
+        <section className="py-2">
+          <div className="flex items-center gap-3 mb-8 border-b border-border/40 pb-4">
+            <h2 className="text-2xl font-light tracking-tight">Profile Settings</h2>
           </div>
-          <form onSubmit={handleProfileUpdate} className="space-y-6">
+          <form onSubmit={handleProfileUpdate} className="space-y-8 max-w-2xl">
             <div>
-              <label className="block text-sm font-medium mb-2">Avatar</label>
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center border-2 border-border overflow-hidden">
-                  <User className="w-8 h-8 text-muted-foreground" />
+              <label className="block text-sm font-medium mb-4 text-muted-foreground">Avatar</label>
+              <div className="flex items-center gap-6">
+                <div className="w-24 h-24 rounded-full bg-secondary/50 flex items-center justify-center border border-border/50 overflow-hidden shadow-sm">
+                  <User className="w-10 h-10 text-muted-foreground/50" />
                 </div>
-                <label className="cursor-pointer px-4 py-2 bg-secondary hover:bg-secondary/80 rounded-xl text-sm font-medium transition-colors border border-border flex items-center gap-2">
+                <label className="cursor-pointer px-5 py-2.5 bg-background hover:bg-secondary/50 rounded-full text-sm font-medium transition-colors border border-border shadow-sm flex items-center gap-2">
                   <Upload className="w-4 h-4" /> Upload New
                   <input type="file" accept="image/*" className="hidden" onChange={(e) => {
                     if(e.target.files?.[0]) {
@@ -112,40 +110,39 @@ export function SettingsContent({ activeSection = "Profile Settings" }: { active
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-2">New Password</label>
+                <label className="block text-sm font-medium mb-2 text-muted-foreground">New Password</label>
                 <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="••••••••" />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Confirm Password</label>
+                <label className="block text-sm font-medium mb-2 text-muted-foreground">Confirm Password</label>
                 <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="••••••••" />
               </div>
             </div>
-            <button type="submit" className="cozy-button text-primary-foreground px-6 py-2.5 rounded-xl font-medium text-sm">Save Changes</button>
+            <button type="submit" className="cozy-button text-primary-foreground px-8 py-3 rounded-full font-medium text-sm">Save Changes</button>
           </form>
         </section>
         )}
 
         {/* Storage Management */}
         {showStorage && (
-        <section className="bg-card rounded-2xl border border-border p-6 cozy-shadow">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-primary/10 rounded-lg"><HardDrive className="w-5 h-5 text-primary" /></div>
-            <h2 className="text-lg font-semibold">Storage Management</h2>
+        <section className="py-2">
+          <div className="flex items-center gap-3 mb-8 border-b border-border/40 pb-4">
+            <h2 className="text-2xl font-light tracking-tight">Storage Management</h2>
           </div>
-          <div className="space-y-4">
+          <div className="space-y-8 max-w-3xl">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Total Used</span>
-              <span className="font-medium">{formatBytes(storageInfo.used_bytes)} / {formatBytes(storageInfo.total_bytes)}</span>
+              <span className="font-medium text-lg">{formatBytes(storageInfo.used_bytes)} <span className="text-muted-foreground text-sm font-normal">/ {formatBytes(storageInfo.total_bytes)}</span></span>
             </div>
             <div className="h-3 w-full bg-secondary rounded-full overflow-hidden border border-border/50">
               <div className="flex h-full w-full">
-                <div className="h-full bg-blue-500 transition-all duration-500" style={{ width: `${vidPct}%` }} title="Videos" />
-                <div className="h-full bg-purple-500 transition-all duration-500" style={{ width: `${imgPct}%` }} title="Images" />
-                <div className="h-full bg-green-500 transition-all duration-500" style={{ width: `${docPct}%` }} title="Documents" />
-                <div className="h-full bg-gray-400 transition-all duration-500" style={{ width: `${othPct}%` }} title="Others" />
+                <div className="h-full bg-blue-500/90 transition-all duration-1000 ease-out" style={{ width: `${vidPct}%` }} title="Videos" />
+                <div className="h-full bg-purple-500/90 transition-all duration-1000 ease-out delay-100" style={{ width: `${imgPct}%` }} title="Images" />
+                <div className="h-full bg-green-500/90 transition-all duration-1000 ease-out delay-200" style={{ width: `${docPct}%` }} title="Documents" />
+                <div className="h-full bg-gray-400/90 transition-all duration-1000 ease-out delay-300" style={{ width: `${othPct}%` }} title="Others" />
               </div>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pt-4">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center"><Film className="w-4 h-4 text-blue-500" /></div>
                 <div><p className="text-xs font-medium">Videos</p><p className="text-xs text-muted-foreground">{formatBytes(breakdown.videos)}</p></div>
@@ -163,9 +160,9 @@ export function SettingsContent({ activeSection = "Profile Settings" }: { active
                 <div><p className="text-xs font-medium">Others</p><p className="text-xs text-muted-foreground">{formatBytes(breakdown.others)}</p></div>
               </div>
             </div>
-            <div className="pt-4">
-              <p className="text-sm text-muted-foreground mb-3">Running out of space? Request a quota increase from the system administrator.</p>
-              <button onClick={handleStorageRequest} className="px-5 py-2.5 bg-secondary hover:bg-secondary/80 text-foreground border border-border rounded-xl text-sm font-medium transition-colors">
+            <div className="pt-8 border-t border-border/40">
+              <p className="text-sm text-muted-foreground mb-4">Running out of space? Request a quota increase from the system administrator.</p>
+              <button onClick={handleStorageRequest} className="px-6 py-2.5 bg-background hover:bg-secondary/50 text-foreground border border-border shadow-sm rounded-full text-sm font-medium transition-colors">
                 Request Additional Storage
               </button>
             </div>
@@ -175,15 +172,16 @@ export function SettingsContent({ activeSection = "Profile Settings" }: { active
 
         {/* Security Settings */}
         {showSecurity && (
-        <section className="bg-card rounded-2xl border border-destructive/20 p-6 cozy-shadow">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-destructive/10 rounded-lg"><ShieldAlert className="w-5 h-5 text-destructive" /></div>
-            <h2 className="text-lg font-semibold text-destructive">Danger Zone</h2>
+        <section className="py-2">
+          <div className="flex items-center gap-3 mb-8 border-b border-border/40 pb-4">
+            <h2 className="text-2xl font-light tracking-tight text-destructive">Security Settings</h2>
           </div>
-          <p className="text-sm text-muted-foreground mb-4">Once you delete your account, there is no going back. All of your files, folders, and shared links will be permanently destroyed.</p>
-          <button onClick={handleDeleteAccount} className="px-6 py-2.5 bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-xl text-sm font-medium transition-colors shadow-sm">
-            Delete Account
-          </button>
+          <div className="max-w-2xl">
+            <p className="text-sm text-muted-foreground mb-6">Once you delete your account, there is no going back. All of your files, folders, and shared links will be permanently destroyed.</p>
+            <button onClick={handleDeleteAccount} className="px-8 py-3 bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-full text-sm font-medium transition-colors shadow-sm">
+              Delete Account
+            </button>
+          </div>
         </section>
         )}
 

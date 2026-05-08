@@ -7,6 +7,7 @@ import { ViewToggle } from "./view-toggle"
 import { FolderCard } from "./folder-card"
 import { FileCard } from "./file-card"
 import { FileRow } from "./file-row"
+import { Inbox } from "lucide-react"
 
 export interface CloudItem {
   id: string
@@ -144,7 +145,7 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
   }
 
   return (
-    <main className="flex-1 flex flex-col min-h-screen overflow-hidden bg-background">
+    <main className="flex-1 flex flex-col min-h-screen overflow-hidden bg-background animate-in fade-in duration-700">
       <input type="file" multiple className="hidden" id="file-upload" onChange={handleUpload} />
 
       {/* Header */}
@@ -174,86 +175,102 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
 
       {/* Content Area */}
       <div className="flex-1 overflow-auto px-8 py-6">
-        {/* Folders Section */}
-        <section className="mb-8">
-          <h2 className="text-sm font-medium text-muted-foreground mb-4">
-            Folders
-          </h2>
-          {view === "grid" ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-              {folders.map((folder) => (
-                <FolderCard
-                  key={folder.id}
-                  name={folder.name}
-                  itemCount={0}
-                  selected={selectedItems.has(`folder-${folder.id}`)}
-                  onSelect={() => toggleSelection(`folder-${folder.id}`)}
-                />
-              ))}
+        {folders.length === 0 && files.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-muted-foreground animate-in fade-in zoom-in-95 duration-700 delay-150">
+            <div className="w-20 h-20 rounded-full bg-secondary/50 flex items-center justify-center mb-6">
+              <Inbox className="w-10 h-10 opacity-50" />
             </div>
-          ) : (
-            <div className="space-y-1">
-              {folders.map((folder) => (
-                <FileRow
-                  key={folder.id}
-                  name={folder.name}
-                  type="default"
-                  size="—"
-                  modified={folder.updated_at ? new Date(folder.updated_at).toLocaleDateString() : "—"}
-                  selected={selectedItems.has(`folder-${folder.id}`)}
-                  onSelect={() => toggleSelection(`folder-${folder.id}`)}
-                />
-              ))}
-            </div>
-          )}
-        </section>
+            <h3 className="text-xl font-medium text-foreground">No files or folders yet</h3>
+            <p className="text-sm mt-2">Upload files or create folders to get started.</p>
+          </div>
+        ) : (
+          <>
+            {/* Folders Section */}
+            {folders.length > 0 && (
+              <section className="mb-8">
+                <h2 className="text-sm font-medium text-muted-foreground mb-4">
+                  Folders
+                </h2>
+                {view === "grid" ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                    {folders.map((folder) => (
+                      <FolderCard
+                        key={folder.id}
+                        name={folder.name}
+                        itemCount={0}
+                        selected={selectedItems.has(`folder-${folder.id}`)}
+                        onSelect={() => toggleSelection(`folder-${folder.id}`)}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {folders.map((folder) => (
+                      <FileRow
+                        key={folder.id}
+                        name={folder.name}
+                        type="default"
+                        size="—"
+                        modified={folder.updated_at ? new Date(folder.updated_at).toLocaleDateString() : "—"}
+                        selected={selectedItems.has(`folder-${folder.id}`)}
+                        onSelect={() => toggleSelection(`folder-${folder.id}`)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
 
-        {/* Files Section */}
-        <section>
-          <h2 className="text-sm font-medium text-muted-foreground mb-4">
-            Files
-          </h2>
-          {view === "grid" ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-              {files.map((file) => (
-                <FileCard
-                  key={file.id}
-                  name={file.name}
-                  type={getFileType(file.name)}
-                  size={formatBytes(file.size_bytes)}
-                  selected={selectedItems.has(`file-${file.id}`)}
-                  onSelect={() => toggleSelection(`file-${file.id}`)}
-                  onDownload={() => handleDownload(file.id)}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="bg-card rounded-2xl border border-border overflow-hidden">
-              {/* Table Header */}
-              <div className="grid grid-cols-[auto_1fr_100px_140px_40px] gap-4 items-center px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/50">
-                <div className="w-5" />
-                <div>Name</div>
-                <div className="text-right">Size</div>
-                <div className="text-right">Modified</div>
-                <div />
-              </div>
-              <div className="divide-y divide-border/50">
-                {files.map((file) => (
-                  <FileRow
-                    key={file.id}
-                    name={file.name}
-                    type={getFileType(file.name)}
-                    size={formatBytes(file.size_bytes)}
-                    modified={file.updated_at ? new Date(file.updated_at).toLocaleDateString() : "—"}
-                    selected={selectedItems.has(`file-${file.id}`)}
-                    onSelect={() => toggleSelection(`file-${file.id}`)}
-                    onDownload={() => handleDownload(file.id)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-        </section>
+            {/* Files Section */}
+            {files.length > 0 && (
+              <section>
+                <h2 className="text-sm font-medium text-muted-foreground mb-4">
+                  Files
+                </h2>
+                {view === "grid" ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                    {files.map((file) => (
+                      <FileCard
+                        key={file.id}
+                        name={file.name}
+                        type={getFileType(file.name)}
+                        size={formatBytes(file.size_bytes)}
+                        selected={selectedItems.has(`file-${file.id}`)}
+                        onSelect={() => toggleSelection(`file-${file.id}`)}
+                        onDownload={() => handleDownload(file.id)}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="bg-card rounded-2xl border border-border overflow-hidden">
+                    {/* Table Header */}
+                    <div className="grid grid-cols-[auto_1fr_100px_140px_40px] gap-4 items-center px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/50">
+                      <div className="w-5" />
+                      <div>Name</div>
+                      <div className="text-right">Size</div>
+                      <div className="text-right">Modified</div>
+                      <div />
+                    </div>
+                    <div className="divide-y divide-border/50">
+                      {files.map((file) => (
+                        <FileRow
+                          key={file.id}
+                          name={file.name}
+                          type={getFileType(file.name)}
+                          size={formatBytes(file.size_bytes)}
+                          modified={file.updated_at ? new Date(file.updated_at).toLocaleDateString() : "—"}
+                          selected={selectedItems.has(`file-${file.id}`)}
+                          onSelect={() => toggleSelection(`file-${file.id}`)}
+                          onDownload={() => handleDownload(file.id)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </section>
+            )}
+          </>
+        )}
       </div>
     </main>
   )

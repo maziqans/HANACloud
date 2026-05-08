@@ -17,9 +17,9 @@ export default function HANACloudPage() {
         onNavigate={setActiveSection}
       />
       {isSettings ? (
-        <SettingsContent activeSection={activeSection} />
+        <SettingsContent key={activeSection} activeSection={activeSection} />
       ) : (
-        <MainContent activeSection={activeSection} />
+        <MainContent key={activeSection} activeSection={activeSection} />
       )}
     </div>
   )
