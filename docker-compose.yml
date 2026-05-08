@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  hanacloud-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount your local source code for real-time hot-reloading
+      - .:/app
+      # Use anonymous volumes to prevent local node_modules & .next from overriding the container's
+      - /app/node_modules
+      - /app/.next
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:8000/api
