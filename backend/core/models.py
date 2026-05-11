@@ -2,7 +2,7 @@ import os
 import shutil
 from django.db import models
 from django.contrib.auth.models import User
-from django.db.models.signals import post_delete
+from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 from django.conf import settings
 
@@ -13,6 +13,21 @@ def user_directory_path(instance, filename):
         path_parts.insert(0, curr.name)
         curr = curr.parent
     return f'user_{instance.user.username}/{"/".join(path_parts)}'
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    # Default to 50 GB
+    storage_limit_bytes = models.BigIntegerField(default=50 * 1024 * 1024 * 1024)
+
+    def __str__(self):
+        return f"{self.user.username} Profile"
+
+@receiver(post_save, sender=User)
+def create_or_update_user_profile(sender, instance, created, **kwargs):
+    if created:
+        UserProfile.objects.create(user=instance)
+    else:
+        instance.userprofile.save()
 
 class CloudFile(models.Model):
     CATEGORY_CHOICES = [
@@ -30,8 +45,10 @@ class CloudFile(models.Model):
     is_folder = models.BooleanField(default=False)
     file_size = models.BigIntegerField(default=0)
     is_trashed = models.BooleanField(default=False)
+    is_starred = models.BooleanField(default=False)
     category = models.CharField(max_length=10, choices=CATEGORY_CHOICES, default='OTHER', blank=True, null=True) # Allow null for folders
     updated_at = models.DateTimeField(auto_now=True) # Use auto_now for last modified
+    last_viewed_at = models.DateTimeField(null=True, blank=True)
 
     def save(self, *args, **kwargs):
         # Auto-calculate sizes and categories upon save

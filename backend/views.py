@@ -3,6 +3,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from django.db.models import Sum
 import os
 from core.models import CloudFile
@@ -29,7 +30,11 @@ def profile_settings(request):
 def storage_summary(request):
     files = CloudFile.objects.filter(user=request.user)
     total_used = files.aggregate(Sum('file_size'))['file_size__sum'] or 0
-    total_limit = 50 * 1024 * 1024 * 1024  # Example: 50GB Limit
+    
+    try:
+        total_limit = request.user.userprofile.storage_limit_bytes
+    except Exception:
+        total_limit = 50 * 1024 * 1024 * 1024  # Fallback to 50GB if no profile exists yet
 
     def get_category_sum(cat):
         return files.filter(category=cat).aggregate(Sum('file_size'))['file_size__sum'] or 0
@@ -63,7 +68,8 @@ def drive_items(request):
             "item_type": "FOLDER" if f.is_folder else "FILE",
             "size_bytes": f.file_size,
             "updated_at": f.updated_at.isoformat(),
-            "item_count": item_count
+            "item_count": item_count,
+            "is_starred": f.is_starred
         })
     return Response(data)
 
@@ -105,10 +111,23 @@ def create_folder(request):
     
     return Response({"message": "Folder created successfully", "id": folder.id})
 
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def toggle_star(request, item_id):
+    item = get_object_or_404(CloudFile, id=item_id, user=request.user)
+    is_starred = request.data.get('is_starred', True)
+    item.is_starred = is_starred
+    item.save(update_fields=['is_starred'])
+    return Response({"message": f"Item {'starred' if is_starred else 'unstarred'}"})
+
 @api_view(['GET'])
 @permission_classes([AllowAny]) # Standard HTML anchor links won't pass JWT headers easily
 def download_file(request, file_id):
     cloud_file = get_object_or_404(CloudFile, id=file_id)
+    
+    cloud_file.last_viewed_at = timezone.now()
+    cloud_file.save(update_fields=['last_viewed_at'])
+    
     ext = os.path.splitext(cloud_file.name)[1].lower()
     inline_exts = ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.webp', '.txt']
     as_attachment = ext not in inline_exts
@@ -142,7 +161,43 @@ def trash_items(request):
             "item_type": "FOLDER" if f.is_folder else "FILE",
             "size_bytes": f.file_size,
             "updated_at": f.updated_at.isoformat(),
-            "item_count": item_count
+            "item_count": item_count,
+            "is_starred": f.is_starred
+        })
+    return Response(data)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def recent_items(request):
+    files = CloudFile.objects.filter(user=request.user, is_trashed=False, is_folder=False, last_viewed_at__isnull=False).order_by('-last_viewed_at')[:20]
+    data = []
+    for f in files:
+        data.append({
+            "id": str(f.id),
+            "name": f.name.split('/')[-1] if '/' in f.name else f.name,
+            "item_type": "FILE",
+            "size_bytes": f.file_size,
+            "updated_at": f.updated_at.isoformat(),
+            "item_count": 0,
+            "is_starred": f.is_starred
+        })
+    return Response(data)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def starred_items(request):
+    files = CloudFile.objects.filter(user=request.user, is_trashed=False, is_starred=True).order_by('-updated_at')
+    data = []
+    for f in files:
+        item_count = f.children.filter(is_trashed=False).count() if f.is_folder else 0
+        data.append({
+            "id": str(f.id),
+            "name": f.name.split('/')[-1] if '/' in f.name else f.name,
+            "item_type": "FOLDER" if f.is_folder else "FILE",
+            "size_bytes": f.file_size,
+            "updated_at": f.updated_at.isoformat(),
+            "item_count": item_count,
+            "is_starred": f.is_starred
         })
     return Response(data)
 

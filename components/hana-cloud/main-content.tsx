@@ -7,7 +7,7 @@ import { ViewToggle } from "./view-toggle"
 import { FolderCard } from "./folder-card"
 import { FileCard } from "./file-card"
 import { FileRow } from "./file-row"
-import { Inbox, CheckCircle2, Loader2, MoreHorizontal, ChevronRight } from "lucide-react"
+import { Inbox, CheckCircle2, Loader2, MoreHorizontal, ChevronRight, Star } from "lucide-react"
 
 export interface CloudItem {
   id: string
@@ -16,6 +16,7 @@ export interface CloudItem {
   size_bytes: number
   updated_at: string
   item_count?: number
+  is_starred?: boolean
 }
 
 const formatBytes = (bytes: number) => {
@@ -77,6 +78,12 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
     try {
       if (activeSection === "Trash") {
         const data = await api.fetchTrashItems()
+        if (Array.isArray(data)) setCurrentItems(data)
+      } else if (activeSection === "Recent") {
+        const data = await api.fetchRecentItems()
+        if (Array.isArray(data)) setCurrentItems(data)
+      } else if (activeSection === "Starred") {
+        const data = await api.fetchStarredItems()
         if (Array.isArray(data)) setCurrentItems(data)
       } else {
         const data = await api.fetchItems(currentParentId)
@@ -185,6 +192,7 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
       setSelectedItems(new Set())
     } else {
       handleDownload(item.id)
+      setTimeout(() => loadItems(), 500) // silently update recent tab sorting in background
     }
   }
 
@@ -204,6 +212,12 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
       }
       return newSet
     })
+  }
+  
+  const toggleStar = async (id: string, is_starred: boolean) => {
+    await api.toggleStar(id, is_starred);
+    await loadItems();
+    window.dispatchEvent(new Event("storageUpdated"));
   }
 
   const executeConfirmAction = async () => {
@@ -276,7 +290,7 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
               ))}
             </div>
             <p className="text-sm text-muted-foreground mt-1">
-              {activeSection === "Trash" ? "Items in trash will be permanently deleted when cleared." : "Welcome back! Here are your files."}
+              {activeSection === "Trash" ? "Items in trash will be permanently deleted when cleared." : activeSection === "Recent" ? "Your 20 most recently viewed files." : activeSection === "Starred" ? "Your favorite files and folders." : "Welcome back! Here are your files."}
             </p>
           </div>
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
@@ -344,7 +358,7 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
               <Inbox className="w-10 h-10 opacity-50" />
             </div>
             <h3 className="text-xl font-medium text-foreground">No files or folders yet</h3>
-            <p className="text-sm mt-2">Upload files or create folders to get started.</p>
+            <p className="text-sm mt-2">{activeSection === "Recent" ? "Open some files to see them here." : activeSection === "Starred" ? "Star files and folders to see them here." : "Upload files or create folders to get started."}</p>
           </div>
         ) : (
           <>
@@ -368,6 +382,11 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
                           selected={selectedItems.has(`folder-${folder.id}`)}
                           onSelect={() => toggleSelection(`folder-${folder.id}`)}
                         />
+                        {folder.is_starred && (
+                          <div className="absolute top-3 right-10 p-1.5 text-yellow-500 pointer-events-none">
+                            <Star className="w-4 h-4 fill-current" />
+                          </div>
+                        )}
                         <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button onClick={(e) => { e.stopPropagation(); const el = document.getElementById(`folder-menu-${folder.id}`); if(el) el.classList.toggle('hidden'); }} className="p-1.5 rounded-lg hover:bg-secondary bg-card/50 backdrop-blur border border-border">
                             <MoreHorizontal className="w-4 h-4" />
@@ -379,6 +398,7 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
                                 <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-destructive" onClick={(e) => { e.stopPropagation(); requestDelete(folder.id, true); }}>Delete Forever</button>
                               </>
                             ) : (
+                              <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); toggleStar(folder.id, !folder.is_starred); }}>{folder.is_starred ? "Remove from Starred" : "Add to Starred"}</button>
                               <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-destructive transition-colors" onClick={(e) => { e.stopPropagation(); requestDelete(folder.id, false); }}>Move to Trash</button>
                             )}
                           </div>
@@ -398,6 +418,8 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
                         selected={selectedItems.has(`folder-${folder.id}`)}
                         onSelect={() => toggleSelection(`folder-${folder.id}`)}
                         onDoubleClick={() => handleDoubleClick(folder)}
+                        isStarred={folder.is_starred}
+                        onToggleStar={() => toggleStar(folder.id, !folder.is_starred)}
                         isTrash={activeSection === "Trash"}
                         onDelete={() => requestDelete(folder.id, false)}
                         onRestore={async () => { await api.moveToTrash(folder.id, false); loadItems(); window.dispatchEvent(new Event("storageUpdated")); }}
@@ -428,6 +450,8 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
                         selected={selectedItems.has(`file-${file.id}`)}
                         onSelect={() => toggleSelection(`file-${file.id}`)}
                         onDoubleClick={() => handleDoubleClick(file)}
+                        isStarred={file.is_starred}
+                        onToggleStar={() => toggleStar(file.id, !file.is_starred)}
                         isTrash={activeSection === "Trash"}
                         onDownload={() => handleDownload(file.id)}
                         onShare={() => alert("Share functionality coming soon!")}
@@ -458,6 +482,8 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
                           selected={selectedItems.has(`file-${file.id}`)}
                           onSelect={() => toggleSelection(`file-${file.id}`)}
                           onDoubleClick={() => handleDoubleClick(file)}
+                          isStarred={file.is_starred}
+                          onToggleStar={() => toggleStar(file.id, !file.is_starred)}
                           isTrash={activeSection === "Trash"}
                           onDownload={() => handleDownload(file.id)}
                           onShare={() => alert("Share functionality coming soon!")}

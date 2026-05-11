@@ -44,6 +44,23 @@ export const moveToTrash = async (itemId: string, is_trashed: boolean = true) =>
   return response.data;
 };
 
+export const toggleStar = async (itemId: string, is_starred: boolean = true) => {
+  const response = await apiClient.patch(`/drive/star/${itemId}/`, {
+    is_starred,
+  });
+  return response.data;
+};
+
+export const fetchStarredItems = async () => {
+  const response = await apiClient.get('/starred/');
+  return response.data;
+};
+
+export const fetchRecentItems = async () => {
+  const response = await apiClient.get('/recent/');
+  return response.data;
+}
+
 export const fetchTrashItems = async () => {
   const response = await apiClient.get('/trash/');
   return response.data;

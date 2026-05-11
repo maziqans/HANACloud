@@ -14,10 +14,13 @@ urlpatterns = [
     
     path('api/drive/', views.drive_items, name='drive_items'),
     path('api/drive/<int:item_id>/', views.move_to_trash, name='move_to_trash'),
+    path('api/drive/star/<int:item_id>/', views.toggle_star, name='toggle_star'),
     path('api/upload/', views.upload_files, name='upload_files'),
     path('api/create-folder/', views.create_folder, name='create_folder'),
     path('api/download/<int:file_id>/', views.download_file, name='download_file'),
     
+    path('api/recent/', views.recent_items, name='recent_items'),
+    path('api/starred/', views.starred_items, name='starred_items'),
     path('api/trash/', views.trash_items, name='trash_items'),
     path('api/trash/empty/', views.empty_trash, name='empty_trash'),
     path('api/drive/permanent/<int:item_id>/', views.permanent_delete, name='permanent_delete'),

@@ -1,7 +1,7 @@
 "use client"
 
 import { useStorageSummary } from "@/hooks/use-storage"
-import { Film, Image, FileText, File } from "lucide-react"
+import { Film, Image, FileText, File, AlertTriangle } from "lucide-react"
 
 const formatBytes = (bytes: number) => {
   if (!bytes) return "0 B"
@@ -19,9 +19,20 @@ export function StorageBreakdown() {
   const imgPct = (breakdown.images / storageInfo.total_bytes) * 100
   const docPct = (breakdown.documents / storageInfo.total_bytes) * 100
   const othPct = (breakdown.others / storageInfo.total_bytes) * 100
+  const remainingBytes = storageInfo.total_bytes - storageInfo.used_bytes
+  const isLowStorage = remainingBytes <= 5 * 1024 * 1024 * 1024 // 5GB threshold
 
   return (
     <div className="space-y-8 max-w-3xl">
+      {isLowStorage && (
+        <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4 flex items-start gap-3 animate-in fade-in">
+          <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+          <div>
+            <h4 className="text-sm font-semibold text-destructive">Storage Space Running Out</h4>
+            <p className="text-sm text-destructive/80 mt-1">You have less than 5GB of storage remaining. Please free up space or request a quota increase below.</p>
+          </div>
+        </div>
+      )}
       <div className="flex justify-between text-sm">
         <span className="text-muted-foreground">Total Used</span>
         <span className="font-medium text-lg">

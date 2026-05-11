@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { FileText, Image, FileVideo, FileAudio, File, MoreHorizontal } from "lucide-react"
+import { FileText, Image, FileVideo, FileAudio, File, MoreHorizontal, Star } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface FileCardProps {
@@ -10,6 +10,7 @@ interface FileCardProps {
   size?: string
   selected?: boolean
   isTrash?: boolean
+  isStarred?: boolean
   onClick?: () => void
   onSelect?: () => void
   onDoubleClick?: () => void
@@ -18,6 +19,7 @@ interface FileCardProps {
   onPermanentDelete?: () => void
   onShare?: () => void
   onDownload?: () => void
+  onToggleStar?: () => void
 }
 
 const fileIcons: Record<string, React.ElementType> = {
@@ -57,6 +59,7 @@ export function FileCard({
   size = "—",
   selected,
   isTrash,
+  isStarred,
   onClick,
   onSelect,
   onDoubleClick,
@@ -64,7 +67,8 @@ export function FileCard({
   onRestore,
   onPermanentDelete,
   onShare,
-  onDownload
+  onDownload,
+  onToggleStar
 }: FileCardProps) {
   const Icon = fileIcons[type] || fileIcons.default
   const styles = fileStyles[type] || fileStyles.default
@@ -117,6 +121,12 @@ export function FileCard({
         )}
       </button>
 
+      {isStarred && (
+        <div className="absolute top-3 right-10 p-1.5 text-yellow-500 pointer-events-none">
+          <Star className="w-4 h-4 fill-current" />
+        </div>
+      )}
+
       {/* More options */}
       <div className="absolute top-3 right-3">
         <button
@@ -134,6 +144,7 @@ export function FileCard({
               </>
             ) : (
               <>
+              <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onToggleStar?.(); }}>{isStarred ? "Remove from Starred" : "Add to Starred"}</button>
               <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDownload?.(); }}>Download</button>
                 <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onShare?.(); }}>Share</button>
               <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-destructive transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDelete?.(); }}>Move to Trash</button>

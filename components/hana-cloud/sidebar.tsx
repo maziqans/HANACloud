@@ -29,7 +29,6 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { icon: HardDrive, label: "My Drive" },
-  { icon: Users, label: "Shared with me" },
   { icon: Clock, label: "Recent" },
   { icon: Star, label: "Starred" },
   { icon: Trash2, label: "Trash" },

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { FileText, Image, FileVideo, FileAudio, File, MoreHorizontal } from "lucide-react"
+import { FileText, Image, FileVideo, FileAudio, File, MoreHorizontal, Star } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface FileRowProps {
@@ -11,6 +11,7 @@ interface FileRowProps {
   modified?: string
   selected?: boolean
   isTrash?: boolean
+  isStarred?: boolean
   onClick?: () => void
   onSelect?: () => void
   onDoubleClick?: () => void
@@ -19,6 +20,7 @@ interface FileRowProps {
   onPermanentDelete?: () => void
   onShare?: () => void
   onDownload?: () => void
+  onToggleStar?: () => void
 }
 
 const fileIcons: Record<string, React.ElementType> = {
@@ -59,6 +61,7 @@ export function FileRow({
   modified = "—",
   selected,
   isTrash,
+  isStarred,
   onClick,
   onSelect,
   onDoubleClick,
@@ -66,7 +69,8 @@ export function FileRow({
   onRestore,
   onPermanentDelete,
   onShare,
-  onDownload
+  onDownload,
+  onToggleStar
 }: FileRowProps) {
   const Icon = fileIcons[type] || fileIcons.default
   const styles = fileStyles[type] || fileStyles.default
@@ -110,6 +114,7 @@ export function FileRow({
         <span className="text-sm font-medium text-foreground truncate">
           {name}
         </span>
+        {isStarred && <Star className="w-4 h-4 text-yellow-500 fill-current shrink-0" />}
       </div>
 
       {/* Size */}
@@ -139,6 +144,7 @@ export function FileRow({
               </>
             ) : (
               <>
+              <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onToggleStar?.(); }}>{isStarred ? "Remove from Starred" : "Add to Starred"}</button>
               <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDownload?.(); }}>Download</button>
                 <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onShare?.(); }}>Share</button>
               <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-destructive transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDelete?.(); }}>Move to Trash</button>
