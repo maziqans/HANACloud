@@ -59,7 +59,7 @@ def drive_items(request):
         item_count = f.children.filter(is_trashed=False).count() if f.is_folder else 0
         data.append({
             "id": str(f.id),
-            "name": f.name,
+            "name": f.name.split('/')[-1] if '/' in f.name else f.name,
             "item_type": "FOLDER" if f.is_folder else "FILE",
             "size_bytes": f.file_size,
             "updated_at": f.updated_at.isoformat(),
@@ -138,7 +138,7 @@ def trash_items(request):
         item_count = f.children.filter(is_trashed=True).count() if f.is_folder else 0
         data.append({
             "id": str(f.id),
-            "name": f.name,
+            "name": f.name.split('/')[-1] if '/' in f.name else f.name,
             "item_type": "FOLDER" if f.is_folder else "FILE",
             "size_bytes": f.file_size,
             "updated_at": f.updated_at.isoformat(),

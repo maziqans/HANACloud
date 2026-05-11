@@ -35,9 +35,10 @@ class CloudFile(models.Model):
 
     def save(self, *args, **kwargs):
         # Auto-calculate sizes and categories upon save
-        if self.file:
+        if not self.pk and self.file:
             self.file_size = self.file.size
-            self.name = self.file.name
+            if not self.name:
+                self.name = os.path.basename(self.file.name)
             
             ext = os.path.splitext(self.name)[1].lower()
             if ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']:

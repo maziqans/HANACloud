@@ -25,8 +25,12 @@ export default function HANACloudPage() {
           const userData = await api.getCurrentUser();
           setUser(userData);
           setIsAuthenticated(true);
-        } catch (e) {
-          api.logout();
+        } catch (e: any) {
+          if (e.response && e.response.status === 401) {
+            api.logout();
+          } else {
+            setIsAuthenticated(true);
+          }
         }
       }
       setIsChecking(false);

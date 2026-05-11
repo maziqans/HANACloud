@@ -27,6 +27,7 @@ const formatBytes = (bytes: number) => {
 }
 
 const getFileType = (name: string): any => {
+  if (!name) return "default";
   const lower = name.toLowerCase()
   if (lower.endsWith(".pdf") || lower.endsWith(".doc") || lower.endsWith(".docx")) return "document"
   if (lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image"
@@ -63,7 +64,14 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
   const [newFolderName, setNewFolderName] = useState("")
   const [currentParentId, setCurrentParentId] = useState<string | null>(null)
   const [navStack, setNavStack] = useState<{id: string, name: string}[]>([])
-  const [isClearTrashOpen, setIsClearTrashOpen] = useState(false)
+  
+  const [confirmAction, setConfirmAction] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    action: () => Promise<void>;
+    confirmText: string;
+  } | null>(null);
 
   const loadItems = async () => {
     try {
@@ -198,16 +206,39 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
     })
   }
 
-  const handleDeleteSelected = async () => {
-    if (window.confirm(`Are you sure you want to move ${selectedItems.size} item(s) to trash?`)) {
-      for (const idStr of selectedItems) {
-        const id = idStr.replace('file-', '').replace('folder-', '')
-        await api.moveToTrash(id)
-      }
-      setSelectedItems(new Set())
-      await loadItems()
-      window.dispatchEvent(new Event("storageUpdated"))
+  const executeConfirmAction = async () => {
+    if (confirmAction) {
+      await confirmAction.action();
+      setConfirmAction(null);
     }
+  };
+
+  const requestDelete = (id: string, isPermanent: boolean) => {
+    setConfirmAction({
+      isOpen: true,
+      title: isPermanent ? "Delete Forever?" : "Move to Trash?",
+      message: isPermanent ? "This item will be permanently deleted. This cannot be undone." : "This item will be moved to the trash.",
+      confirmText: isPermanent ? "Delete Forever" : "Move to Trash",
+      action: async () => {
+        if (isPermanent) await api.permanentDelete(id);
+        else await api.moveToTrash(id);
+        await loadItems();
+        window.dispatchEvent(new Event("storageUpdated"));
+      }
+    });
+  };
+
+  const handleDeleteSelected = () => {
+    setConfirmAction({
+      isOpen: true,
+      title: "Move to Trash?",
+      message: `Are you sure you want to move ${selectedItems.size} item(s) to the trash?`,
+      confirmText: "Move to Trash",
+      action: async () => {
+        for (const idStr of selectedItems) await api.moveToTrash(idStr.replace(/file-|folder-/, ''));
+        setSelectedItems(new Set()); await loadItems(); window.dispatchEvent(new Event("storageUpdated"));
+      }
+    });
   }
 
   return (
@@ -251,7 +282,17 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
             {activeSection === "Trash" && (
               <button 
-                onClick={() => setIsClearTrashOpen(true)}
+                onClick={() => {
+                  setConfirmAction({
+                    isOpen: true,
+                    title: "Empty Trash?",
+                    message: "All items in the trash will be permanently deleted from the cloud. This action cannot be undone.",
+                    confirmText: "Empty Trash",
+                    action: async () => {
+                      await api.emptyTrash(); await loadItems(); window.dispatchEvent(new Event("storageUpdated"));
+                    }
+                  });
+                }}
                 className="px-4 py-2 bg-destructive/10 text-destructive hover:bg-destructive hover:text-white rounded-xl transition-colors font-medium mr-2"
               >
                 Clear Trash
@@ -277,10 +318,14 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
                   setSelectedItems(new Set()); loadItems(); window.dispatchEvent(new Event("storageUpdated"));
                 }} className="hover:underline">Restore</button>
                 <button onClick={async () => {
-                  if(window.confirm("Permanently delete selected items?")) {
-                    for (const idStr of selectedItems) await api.permanentDelete(idStr.replace(/file-|folder-/, ''));
-                    setSelectedItems(new Set()); loadItems(); window.dispatchEvent(new Event("storageUpdated"));
-                  }
+                  setConfirmAction({
+                    isOpen: true, title: "Delete Forever?", confirmText: "Delete Forever",
+                    message: `Are you sure you want to permanently delete ${selectedItems.size} item(s)?`,
+                    action: async () => {
+                      for (const idStr of selectedItems) await api.permanentDelete(idStr.replace(/file-|folder-/, ''));
+                      setSelectedItems(new Set()); await loadItems(); window.dispatchEvent(new Event("storageUpdated"));
+                    }
+                  });
                 }} className="hover:underline text-red-200">Delete Permanently</button>
               </div>
             ) : (
@@ -331,15 +376,10 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
                             {activeSection === "Trash" ? (
                               <>
                                 <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-foreground" onClick={(e) => { e.stopPropagation(); api.moveToTrash(folder.id, false).then(() => { loadItems(); window.dispatchEvent(new Event("storageUpdated")); }) }}>Restore</button>
-                                <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-destructive" onClick={(e) => { e.stopPropagation(); if(window.confirm("Permanently delete folder?")) api.permanentDelete(folder.id).then(() => { loadItems(); window.dispatchEvent(new Event("storageUpdated")); }) }}>Delete Forever</button>
+                                <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-destructive" onClick={(e) => { e.stopPropagation(); requestDelete(folder.id, true); }}>Delete Forever</button>
                               </>
                             ) : (
-                              <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-destructive transition-colors" onClick={(e) => { 
-                                e.stopPropagation(); 
-                                if(window.confirm("Move folder to trash?")) {
-                                  api.moveToTrash(folder.id).then(() => { loadItems(); window.dispatchEvent(new Event("storageUpdated")); });
-                                }
-                              }}>Move to Trash</button>
+                              <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-destructive transition-colors" onClick={(e) => { e.stopPropagation(); requestDelete(folder.id, false); }}>Move to Trash</button>
                             )}
                           </div>
                         </div>
@@ -359,9 +399,9 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
                         onSelect={() => toggleSelection(`folder-${folder.id}`)}
                         onDoubleClick={() => handleDoubleClick(folder)}
                         isTrash={activeSection === "Trash"}
-                        onDelete={async () => { if(window.confirm("Move folder to trash?")) { await api.moveToTrash(folder.id); loadItems(); window.dispatchEvent(new Event("storageUpdated")); } }}
+                        onDelete={() => requestDelete(folder.id, false)}
                         onRestore={async () => { await api.moveToTrash(folder.id, false); loadItems(); window.dispatchEvent(new Event("storageUpdated")); }}
-                        onPermanentDelete={async () => { if(window.confirm("Permanently delete folder?")) { await api.permanentDelete(folder.id); loadItems(); window.dispatchEvent(new Event("storageUpdated")); } }}
+                        onPermanentDelete={() => requestDelete(folder.id, true)}
                         onShare={() => alert("Share functionality coming soon!")}
                         onDownload={() => alert("Downloading entire folders coming soon!")}
                       />
@@ -391,9 +431,9 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
                         isTrash={activeSection === "Trash"}
                         onDownload={() => handleDownload(file.id)}
                         onShare={() => alert("Share functionality coming soon!")}
-                        onDelete={async () => { if(window.confirm("Move file to trash?")) { await api.moveToTrash(file.id); loadItems(); window.dispatchEvent(new Event("storageUpdated")); } }}
+                        onDelete={() => requestDelete(file.id, false)}
                         onRestore={async () => { await api.moveToTrash(file.id, false); loadItems(); window.dispatchEvent(new Event("storageUpdated")); }}
-                        onPermanentDelete={async () => { if(window.confirm("Permanently delete file?")) { await api.permanentDelete(file.id); loadItems(); window.dispatchEvent(new Event("storageUpdated")); } }}
+                        onPermanentDelete={() => requestDelete(file.id, true)}
                       />
                     ))}
                   </div>
@@ -421,9 +461,9 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
                           isTrash={activeSection === "Trash"}
                           onDownload={() => handleDownload(file.id)}
                           onShare={() => alert("Share functionality coming soon!")}
-                          onDelete={async () => { if(window.confirm("Move file to trash?")) { await api.moveToTrash(file.id); loadItems(); window.dispatchEvent(new Event("storageUpdated")); } }}
+                          onDelete={() => requestDelete(file.id, false)}
                           onRestore={async () => { await api.moveToTrash(file.id, false); loadItems(); window.dispatchEvent(new Event("storageUpdated")); }}
-                          onPermanentDelete={async () => { if(window.confirm("Permanently delete file?")) { await api.permanentDelete(file.id); loadItems(); window.dispatchEvent(new Event("storageUpdated")); } }}
+                          onPermanentDelete={() => requestDelete(file.id, true)}
                         />
                       ))}
                     </div>
@@ -479,31 +519,26 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
         </div>
       )}
 
-      {/* Clear Trash Modal */}
-      {isClearTrashOpen && (
+      {/* Universal Confirmation Modal */}
+      {confirmAction && confirmAction.isOpen && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center animate-in fade-in">
           <div className="bg-card border border-border shadow-2xl rounded-2xl w-full max-w-md p-6 animate-in zoom-in-95">
-            <h3 className="text-lg font-semibold mb-2">Empty Trash?</h3>
+            <h3 className="text-lg font-semibold mb-2">{confirmAction.title}</h3>
             <p className="text-sm text-muted-foreground mb-6">
-              All items in the trash will be permanently deleted from the cloud. This action cannot be undone.
+              {confirmAction.message}
             </p>
             <div className="flex justify-end gap-3">
               <button 
-                onClick={() => setIsClearTrashOpen(false)}
+                onClick={() => setConfirmAction(null)}
                 className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               >
                 Cancel
               </button>
               <button 
-                onClick={async () => {
-                  setIsClearTrashOpen(false);
-                  await api.emptyTrash();
-                  await loadItems();
-                  window.dispatchEvent(new Event("storageUpdated"));
-                }}
-                className="bg-destructive hover:bg-destructive/90 text-destructive-foreground px-5 py-2 rounded-xl text-sm font-medium transition-colors"
+                onClick={executeConfirmAction}
+                className="bg-destructive hover:bg-destructive/90 text-destructive-foreground px-5 py-2 rounded-xl text-sm font-medium transition-colors shadow-sm"
               >
-                Empty Trash
+                {confirmAction.confirmText}
               </button>
             </div>
           </div>
