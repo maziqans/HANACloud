@@ -1,6 +1,8 @@
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from django.http import FileResponse, Http404
+from django.shortcuts import get_object_or_404
 from django.db.models import Sum
 from core.models import CloudFile
 
@@ -41,6 +43,40 @@ def storage_summary(request):
             "others": get_category_sum('OTHER'),
         }
     })
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def drive_items(request):
+    files = CloudFile.objects.filter(user=request.user).order_by('-uploaded_at')
+    data = [
+        {
+            "id": str(f.id),
+            "name": f.name,
+            "item_type": "FILE",
+            "size_bytes": f.file_size,
+            "updated_at": f.uploaded_at.isoformat()
+        } for f in files
+    ]
+    return Response(data)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def upload_files(request):
+    for f in request.FILES.getlist('files'):
+        CloudFile.objects.create(user=request.user, file=f)
+    return Response({"message": "Files uploaded successfully"})
+
+@api_view(['GET'])
+@permission_classes([AllowAny]) # Standard HTML anchor links won't pass JWT headers easily
+def download_file(request, file_id):
+    cloud_file = get_object_or_404(CloudFile, id=file_id)
+    return FileResponse(cloud_file.file.open('rb'), as_attachment=True, filename=cloud_file.name)
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def move_to_trash(request, item_id):
+    CloudFile.objects.filter(id=item_id, user=request.user).delete()
+    return Response({"message": "Item moved to trash"})
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
