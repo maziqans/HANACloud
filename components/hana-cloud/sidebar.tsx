@@ -43,9 +43,11 @@ const settingsItems: NavItem[] = [
 interface SidebarProps {
   onNavigate?: (item: string) => void
   activeItem?: string
+  user?: any
+  onLogout?: () => void
 }
 
-export function Sidebar({ onNavigate, activeItem = "My Drive" }: SidebarProps) {
+export function Sidebar({ onNavigate, activeItem = "My Drive", user, onLogout }: SidebarProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const profileRef = useRef<HTMLDivElement>(null)
@@ -171,14 +173,14 @@ export function Sidebar({ onNavigate, activeItem = "My Drive" }: SidebarProps) {
             className="w-full flex items-center gap-3 mb-4 p-2 -mx-2 rounded-xl profile-button cursor-pointer"
           >
             <div className="w-10 h-10 rounded-xl overflow-hidden bg-gradient-to-br from-sidebar-primary/40 to-sidebar-primary/20 flex items-center justify-center ring-2 ring-sidebar-primary/40">
-              <span className="text-sm font-semibold text-sidebar-primary">AH</span>
+              <span className="text-sm font-semibold text-sidebar-primary uppercase">{user?.username?.[0] || 'U'}</span>
             </div>
             <div className="flex-1 min-w-0 text-left">
               <p className="text-sm font-medium text-sidebar-foreground truncate">
-                Ammar Haziq
+                {user?.first_name || user?.username || 'User'}
               </p>
               <p className="text-xs text-sidebar-muted truncate">
-                ammar@hanacloud.io
+                {user?.email || 'No email provided'}
               </p>
             </div>
             <ChevronDown className={cn(
@@ -201,7 +203,10 @@ export function Sidebar({ onNavigate, activeItem = "My Drive" }: SidebarProps) {
                 <span className="text-sm">Account Settings</span>
               </button>
               <div className="h-px bg-sidebar-border mx-3" />
-              <button className="w-full px-4 py-3 flex items-center gap-3 text-red-400 hover:bg-sidebar-accent transition-colors text-left">
+              <button 
+                onClick={onLogout}
+                className="w-full px-4 py-3 flex items-center gap-3 text-red-400 hover:bg-sidebar-accent transition-colors text-left"
+              >
                 <LogOut className="w-4 h-4" strokeWidth={1.5} />
                 <span className="text-sm">Log out</span>
               </button>
