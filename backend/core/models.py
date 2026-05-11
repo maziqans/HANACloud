@@ -3,8 +3,8 @@ from django.db import models
 from django.contrib.auth.models import User
 
 def user_directory_path(instance, filename):
-    # Files will be uploaded to: /app/storage/user_<id>/<filename>
-    return f'user_{instance.user.id}/{filename}'
+    # Files will be uploaded to: /app/storage/user_<username>/<filename>
+    return f'user_{instance.user.username}/{filename}'
 
 class CloudFile(models.Model):
     CATEGORY_CHOICES = [
@@ -20,8 +20,8 @@ class CloudFile(models.Model):
     name = models.CharField(max_length=255)
     is_folder = models.BooleanField(default=False)
     file_size = models.BigIntegerField(default=0)
-    category = models.CharField(max_length=10, choices=CATEGORY_CHOICES, default='OTHER')
-    uploaded_at = models.DateTimeField(auto_now_add=True)
+    category = models.CharField(max_length=10, choices=CATEGORY_CHOICES, default='OTHER', blank=True, null=True) # Allow null for folders
+    updated_at = models.DateTimeField(auto_now=True) # Use auto_now for last modified
 
     def save(self, *args, **kwargs):
         # Auto-calculate sizes and categories upon save
@@ -38,5 +38,7 @@ class CloudFile(models.Model):
                 self.category = 'DOCUMENT'
             else:
                 self.category = 'OTHER'
-                
         super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name

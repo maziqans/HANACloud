@@ -57,7 +57,9 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   const [currentItems, setCurrentItems] = useState<CloudItem[]>([])
-  const [uploadState, setUploadState] = useState<{ progress: number, total: number, complete: boolean } | null>(null)
+  const [uploadState, setUploadState] = useState<{ progress: number, total: number, complete: boolean, filename: string } | null>(null)
+  const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false)
+  const [newFolderName, setNewFolderName] = useState("")
 
   const loadItems = async () => {
     try {
@@ -73,12 +75,9 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
   }, [])
 
   useEffect(() => {
-    const handleCreateFolder = async () => {
-      const name = window.prompt("Enter folder name:")
-      if (name) {
-        await api.createFolder(name)
-        await loadItems()
-      }
+    const handleCreateFolder = () => {
+      setNewFolderName("")
+      setIsCreateFolderOpen(true)
     }
     window.addEventListener("createFolder", handleCreateFolder)
     return () => window.removeEventListener("createFolder", handleCreateFolder)
@@ -122,7 +121,8 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
       return
     }
 
-    setUploadState({ progress: 0, total: files.length, complete: false })
+    const fileNames = files.map(f => f.name).join(", ")
+    setUploadState({ progress: 0, total: files.length, complete: false, filename: fileNames })
 
     try {
       await api.uploadFiles(formData, (progressEvent) => {
@@ -295,21 +295,77 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
         )}
       </div>
 
+      {/* Create Folder Modal */}
+      {isCreateFolderOpen && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center animate-in fade-in">
+          <div className="bg-card border border-border shadow-2xl rounded-2xl w-full max-w-md p-6 animate-in zoom-in-95">
+            <h3 className="text-lg font-semibold mb-4">Create New Folder</h3>
+            <input 
+              type="text" 
+              autoFocus
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              className="w-full bg-secondary/50 border border-border rounded-xl px-4 py-3 text-sm focus:bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all mb-6"
+              placeholder="Folder name"
+              onKeyDown={async (e) => {
+                if (e.key === 'Enter' && newFolderName.trim()) {
+                  setIsCreateFolderOpen(false);
+                  await api.createFolder(newFolderName.trim());
+                  await loadItems();
+                }
+              }}
+            />
+            <div className="flex justify-end gap-3">
+              <button 
+                onClick={() => setIsCreateFolderOpen(false)}
+                className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={async () => {
+                  if (newFolderName.trim()) {
+                    setIsCreateFolderOpen(false);
+                    await api.createFolder(newFolderName.trim());
+                    await loadItems();
+                  }
+                }}
+                className="cozy-button text-primary-foreground px-5 py-2 rounded-xl text-sm font-medium"
+              >
+                Create
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Upload Progress Tab */}
       {uploadState && (
         <div className="fixed bottom-6 right-6 w-80 bg-card border border-border shadow-2xl rounded-xl overflow-hidden z-50 animate-in slide-in-from-bottom-5">
-          <div className="bg-secondary/50 px-4 py-3 border-b border-border flex justify-between items-center">
-            <span className="text-sm font-medium flex items-center gap-2">
+          <div className="bg-secondary/50 px-4 py-4 border-b border-border flex justify-between items-center">
+            <div className="flex items-center gap-3 w-full">
               {uploadState.complete ? (
-                <><CheckCircle2 className="w-4 h-4 text-green-500" /> Upload complete</>
+                <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
               ) : (
-                <><Loader2 className="w-4 h-4 animate-spin text-primary" /> Uploading {uploadState.total} item(s)</>
+                <Loader2 className="w-5 h-5 animate-spin text-primary shrink-0" />
               )}
-            </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium truncate text-foreground">
+                  {uploadState.complete ? "Upload complete" : uploadState.filename}
+                </p>
+                {!uploadState.complete && (
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Uploading {uploadState.total} item(s) • {uploadState.progress}%
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
-          <div className="h-1.5 w-full bg-secondary">
-             <div className="h-full bg-primary transition-all duration-300" style={{ width: `${uploadState.progress}%` }} />
-          </div>
+          {!uploadState.complete && (
+            <div className="h-1.5 w-full bg-secondary">
+               <div className="h-full bg-primary transition-all duration-300" style={{ width: `${uploadState.progress}%` }} />
+            </div>
+          )}
         </div>
       )}
     </main>

@@ -47,14 +47,14 @@ def storage_summary(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def drive_items(request):
-    files = CloudFile.objects.filter(user=request.user).order_by('-uploaded_at')
+    files = CloudFile.objects.filter(user=request.user).order_by('-updated_at')
     data = [
         {
             "id": str(f.id),
             "name": f.name,
             "item_type": "FOLDER" if f.is_folder else "FILE",
             "size_bytes": f.file_size,
-            "updated_at": f.uploaded_at.isoformat()
+            "updated_at": f.updated_at.isoformat()
         } for f in files
     ]
     return Response(data)
