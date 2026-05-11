@@ -1,0 +1,6 @@
+FROM postgres:15-alpine
+
+ENV POSTGRES_DB=hanacloud
+ENV POSTGRES_USER=postgres
+ENV POSTGRES_PASSWORD=postgres
+ENV POSTGRES_HOST_AUTH_METHOD=trust
