@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/hana-cloud/sidebar"
 import { MainContent } from "@/components/hana-cloud/main-content"
 import { SettingsContent } from "@/components/hana-cloud/settings-content"
 import * as api from "@/lib/api"
+import { Cloud } from "lucide-react"
 
 export default function HANACloudPage() {
   const [activeSection, setActiveSection] = useState("My Drive")
@@ -56,23 +57,24 @@ export default function HANACloudPage() {
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background animate-in fade-in duration-700 p-4">
-        <div className="w-full max-w-md p-8 bg-card rounded-3xl border border-border shadow-lg">
-          <div className="flex justify-center mb-6">
-            <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.5 19c.6 0 1-.4 1-1V6c0-.6-.4-1-1-1H6.5c-.6 0-1 .4-1 1v12c0 .6.4 1 1 1h11z"/><path d="M12 10v4"/><path d="M10 12h4"/></svg>
+        <div className="w-full max-w-md p-10 bg-card rounded-3xl border border-border cozy-shadow">
+          <div className="flex flex-col items-center justify-center mb-8">
+            <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center text-primary mb-5 shadow-sm border border-primary/20">
+              <Cloud className="w-8 h-8 text-primary" strokeWidth={1.5} />
             </div>
+            <h1 className="text-3xl font-light tracking-tight text-center text-foreground">Welcome to HANACloud</h1>
+            <p className="text-sm text-muted-foreground mt-2 text-center">Your private storage</p>
           </div>
-          <h1 className="text-2xl font-light tracking-tight mb-8 text-center">Welcome to HANACloud</h1>
-          <form onSubmit={handleLogin} className="space-y-5">
+          <form onSubmit={handleLogin} className="space-y-6">
             <div>
               <label className="block text-sm font-medium mb-2 text-muted-foreground">Username</label>
-              <input type="text" value={username} onChange={e => setUsername(e.target.value)} className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all" required placeholder="Enter your username" />
+              <input type="text" value={username} onChange={e => setUsername(e.target.value)} className="w-full bg-secondary/50 border border-border rounded-xl px-4 py-3 text-sm focus:bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all shadow-sm" required placeholder="Enter your username" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-2 text-muted-foreground">Password</label>
-              <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all" required placeholder="••••••••" />
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-secondary/50 border border-border rounded-xl px-4 py-3 text-sm focus:bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all shadow-sm" required placeholder="••••••••" />
             </div>
-            <button type="submit" className="w-full cozy-button text-primary-foreground px-4 py-3 rounded-xl font-medium mt-2">Sign In</button>
+            <button type="submit" className="w-full cozy-button text-primary-foreground px-4 py-3.5 rounded-full font-medium mt-4 shadow-sm">Sign In</button>
           </form>
         </div>
       </div>

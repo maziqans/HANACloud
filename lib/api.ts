@@ -50,7 +50,7 @@ export const updateProfile = async (formData: FormData) => {
 };
 
 export const getStorageInfo = async () => {
-  const response = await apiClient.get('/storage/');
+  const response = await apiClient.get('/storage/summary/');
   return response.data;
 };
 

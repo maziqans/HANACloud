@@ -1,6 +1,8 @@
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from django.db.models import Sum
+from .models import CloudFile
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -20,17 +22,23 @@ def profile_settings(request):
     return Response({"message": "Profile updated successfully"})
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
-def storage_info(request):
-    # Mocking your 5.5TB pool
+@permission_classes([IsAuthenticated])
+def storage_summary(request):
+    files = CloudFile.objects.filter(user=request.user)
+    total_used = files.aggregate(Sum('file_size'))['file_size__sum'] or 0
+    total_limit = 50 * 1024 * 1024 * 1024  # Example: 50GB Limit
+
+    def get_category_sum(cat):
+        return files.filter(category=cat).aggregate(Sum('file_size'))['file_size__sum'] or 0
+
     return Response({
-        "used_bytes": 1024 * 1024 * 1024 * 500, # 500GB mock usage
-        "total_bytes": 1024 * 1024 * 1024 * 1024 * 5.5, # 5.5TB total capacity
+        "used_bytes": total_used,
+        "total_bytes": total_limit,
         "breakdown": {
-            "videos": 1024 * 1024 * 1024 * 250,    # 250GB
-            "images": 1024 * 1024 * 1024 * 150,    # 150GB
-            "documents": 1024 * 1024 * 1024 * 50,  # 50GB
-            "others": 1024 * 1024 * 1024 * 50,     # 50GB
+            "videos": get_category_sum('VIDEO'),
+            "images": get_category_sum('IMAGE'),
+            "documents": get_category_sum('DOCUMENT'),
+            "others": get_category_sum('OTHER'),
         }
     })
 

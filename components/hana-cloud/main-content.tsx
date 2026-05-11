@@ -112,6 +112,7 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
     try {
       await api.uploadFiles(formData)
       await loadItems()
+      window.dispatchEvent(new Event("storageUpdated"))
     } catch (error) {
       console.error("Failed to upload files:", error)
     } finally {

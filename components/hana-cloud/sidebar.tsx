@@ -20,6 +20,7 @@ import {
   ArrowLeft,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { StorageBar } from "./storage-bar"
 
 interface NavItem {
   icon: React.ElementType
@@ -173,11 +174,11 @@ export function Sidebar({ onNavigate, activeItem = "My Drive", user, onLogout }:
             className="w-full flex items-center gap-3 mb-4 p-2 -mx-2 rounded-xl profile-button cursor-pointer"
           >
             <div className="w-10 h-10 rounded-xl overflow-hidden bg-gradient-to-br from-sidebar-primary/40 to-sidebar-primary/20 flex items-center justify-center ring-2 ring-sidebar-primary/40">
-              <span className="text-sm font-semibold text-sidebar-primary uppercase">{user?.username?.[0] || 'U'}</span>
+            <span className="text-sm font-semibold text-sidebar-primary uppercase">{user?.first_name?.[0] || user?.username?.[0] || 'U'}</span>
             </div>
             <div className="flex-1 min-w-0 text-left">
               <p className="text-sm font-medium text-sidebar-foreground truncate">
-                {user?.first_name || user?.username || 'User'}
+              {[user?.first_name, user?.last_name].filter(Boolean).join(" ") || user?.username || 'User'}
               </p>
               <p className="text-xs text-sidebar-muted truncate">
                 {user?.email || 'No email provided'}
@@ -215,18 +216,7 @@ export function Sidebar({ onNavigate, activeItem = "My Drive", user, onLogout }:
         </div>
 
         {/* Storage Progress */}
-        <div className="bg-sidebar-accent rounded-xl p-3">
-          <div className="flex items-center justify-between text-xs mb-2">
-            <span className="text-sidebar-muted">Storage</span>
-            <span className="text-sidebar-foreground font-medium">7.2 / 15 GB</span>
-          </div>
-          <div className="h-2 bg-sidebar-border rounded-full overflow-hidden">
-            <div 
-              className="h-full rounded-full progress-golden transition-all duration-500"
-              style={{ width: "48%" }}
-            />
-          </div>
-        </div>
+        <StorageBar />
       </div>
     </aside>
   )
