@@ -14,7 +14,10 @@ class UserProfileInline(admin.StackedInline):
     verbose_name_plural = 'Storage Quota'
 
 class UserAdmin(BaseUserAdmin):
-    inlines = (UserProfileInline,)
+    def get_inlines(self, request, obj=None):
+        if not obj:
+            return list()
+        return (UserProfileInline,)
 
 # Re-register UserAdmin
 admin.site.unregister(User)
