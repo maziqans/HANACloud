@@ -53,9 +53,10 @@ const getUniqueFilename = (filename: string, existingNames: string[]) => {
 
 interface MainContentProps {
   activeSection?: string
+  user?: any
 }
 
-export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
+export function MainContent({ activeSection = "My Drive", user }: MainContentProps) {
   const [view, setView] = useState<"grid" | "list">("grid")
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
@@ -65,6 +66,7 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
   const [newFolderName, setNewFolderName] = useState("")
   const [currentParentId, setCurrentParentId] = useState<string | null>(null)
   const [navStack, setNavStack] = useState<{id: string, name: string}[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   
   const [confirmAction, setConfirmAction] = useState<{
     isOpen: boolean;
@@ -74,7 +76,8 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
     confirmText: string;
   } | null>(null);
 
-  const loadItems = async () => {
+  const loadItems = async (isBackground = false) => {
+    if (!isBackground) setIsLoading(true)
     try {
       if (activeSection === "Trash") {
         const data = await api.fetchTrashItems()
@@ -91,6 +94,8 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
       }
     } catch (error) {
       console.error("Failed to fetch items:", error)
+    } finally {
+      if (!isBackground) setIsLoading(false)
     }
   }
 
@@ -160,7 +165,7 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
         const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
         setUploadState(prev => prev ? { ...prev, progress: percentCompleted } : null)
       })
-      await loadItems()
+      await loadItems(true)
       window.dispatchEvent(new Event("storageUpdated"))
       setUploadState(prev => prev ? { ...prev, complete: true, progress: 100 } : null)
       setTimeout(() => setUploadState(null), 4000)
@@ -192,7 +197,7 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
       setSelectedItems(new Set())
     } else {
       handleDownload(item.id)
-      setTimeout(() => loadItems(), 500) // silently update recent tab sorting in background
+      setTimeout(() => loadItems(true), 500) // silently update recent tab sorting in background
     }
   }
 
@@ -216,7 +221,7 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
   
   const toggleStar = async (id: string, is_starred: boolean) => {
     await api.toggleStar(id, is_starred);
-    await loadItems();
+    await loadItems(true);
     window.dispatchEvent(new Event("storageUpdated"));
   }
 
@@ -236,7 +241,7 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
       action: async () => {
         if (isPermanent) await api.permanentDelete(id);
         else await api.moveToTrash(id);
-        await loadItems();
+        await loadItems(true);
         window.dispatchEvent(new Event("storageUpdated"));
       }
     });
@@ -250,7 +255,7 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
       confirmText: "Move to Trash",
       action: async () => {
         for (const idStr of selectedItems) await api.moveToTrash(idStr.replace(/file-|folder-/, ''));
-        setSelectedItems(new Set()); await loadItems(); window.dispatchEvent(new Event("storageUpdated"));
+        setSelectedItems(new Set()); await loadItems(true); window.dispatchEvent(new Event("storageUpdated"));
       }
     });
   }
@@ -290,7 +295,7 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
               ))}
             </div>
             <p className="text-sm text-muted-foreground mt-1">
-              {activeSection === "Trash" ? "Items in trash will be permanently deleted when cleared." : activeSection === "Recent" ? "Your 20 most recently viewed files." : activeSection === "Starred" ? "Your favorite files and folders." : "Welcome back! Here are your files."}
+              {activeSection === "Trash" ? "Items in trash will be permanently deleted when cleared." : activeSection === "Recent" ? "Your 20 most recently viewed files." : activeSection === "Starred" ? "Your favorite files and folders." : `Welcome back, ${user?.first_name || user?.username}! Here are your files.`}
             </p>
           </div>
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
@@ -303,7 +308,7 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
                     message: "All items in the trash will be permanently deleted from the cloud. This action cannot be undone.",
                     confirmText: "Empty Trash",
                     action: async () => {
-                      await api.emptyTrash(); await loadItems(); window.dispatchEvent(new Event("storageUpdated"));
+                      await api.emptyTrash(); await loadItems(true); window.dispatchEvent(new Event("storageUpdated"));
                     }
                   });
                 }}
@@ -329,7 +334,7 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
               <div className="flex items-center gap-4 text-sm font-medium">
                 <button onClick={async () => {
                   for (const idStr of selectedItems) await api.moveToTrash(idStr.replace(/file-|folder-/, ''), false);
-                  setSelectedItems(new Set()); loadItems(); window.dispatchEvent(new Event("storageUpdated"));
+                  setSelectedItems(new Set()); loadItems(true); window.dispatchEvent(new Event("storageUpdated"));
                 }} className="hover:underline">Restore</button>
                 <button onClick={async () => {
                   setConfirmAction({
@@ -337,7 +342,7 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
                     message: `Are you sure you want to permanently delete ${selectedItems.size} item(s)?`,
                     action: async () => {
                       for (const idStr of selectedItems) await api.permanentDelete(idStr.replace(/file-|folder-/, ''));
-                      setSelectedItems(new Set()); await loadItems(); window.dispatchEvent(new Event("storageUpdated"));
+                      setSelectedItems(new Set()); await loadItems(true); window.dispatchEvent(new Event("storageUpdated"));
                     }
                   });
                 }} className="hover:underline text-red-200">Delete Permanently</button>
@@ -352,7 +357,12 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
           </div>
         )}
 
-        {folders.length === 0 && files.length === 0 ? (
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-muted-foreground animate-in fade-in duration-500">
+            <Loader2 className="w-8 h-8 animate-spin text-primary opacity-80 mb-4" />
+            <p className="text-sm">Loading your files...</p>
+          </div>
+        ) : folders.length === 0 && files.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-muted-foreground animate-in fade-in zoom-in-95 duration-700 delay-150">
             <div className="w-20 h-20 rounded-full bg-secondary/50 flex items-center justify-center mb-6">
               <Inbox className="w-10 h-10 opacity-50" />
@@ -394,7 +404,7 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
                           <div id={`folder-menu-${folder.id}`} className="hidden absolute right-0 top-8 w-32 bg-popover border border-border rounded-lg shadow-lg z-50 py-1" onMouseLeave={(e) => e.currentTarget.classList.add('hidden')}>
                             {activeSection === "Trash" ? (
                               <>
-                                <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-foreground" onClick={(e) => { e.stopPropagation(); api.moveToTrash(folder.id, false).then(() => { loadItems(); window.dispatchEvent(new Event("storageUpdated")); }) }}>Restore</button>
+                                <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-foreground" onClick={(e) => { e.stopPropagation(); api.moveToTrash(folder.id, false).then(() => { loadItems(true); window.dispatchEvent(new Event("storageUpdated")); }) }}>Restore</button>
                                 <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-destructive" onClick={(e) => { e.stopPropagation(); requestDelete(folder.id, true); }}>Delete Forever</button>
                               </>
                             ) : (
@@ -424,7 +434,7 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
                         onToggleStar={() => toggleStar(folder.id, !folder.is_starred)}
                         isTrash={activeSection === "Trash"}
                         onDelete={() => requestDelete(folder.id, false)}
-                        onRestore={async () => { await api.moveToTrash(folder.id, false); loadItems(); window.dispatchEvent(new Event("storageUpdated")); }}
+                        onRestore={async () => { await api.moveToTrash(folder.id, false); loadItems(true); window.dispatchEvent(new Event("storageUpdated")); }}
                         onPermanentDelete={() => requestDelete(folder.id, true)}
                         onShare={() => alert("Share functionality coming soon!")}
                         onDownload={() => alert("Downloading entire folders coming soon!")}
@@ -458,7 +468,7 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
                         onDownload={() => handleDownload(file.id)}
                         onShare={() => alert("Share functionality coming soon!")}
                         onDelete={() => requestDelete(file.id, false)}
-                        onRestore={async () => { await api.moveToTrash(file.id, false); loadItems(); window.dispatchEvent(new Event("storageUpdated")); }}
+                        onRestore={async () => { await api.moveToTrash(file.id, false); loadItems(true); window.dispatchEvent(new Event("storageUpdated")); }}
                         onPermanentDelete={() => requestDelete(file.id, true)}
                       />
                     ))}
@@ -490,7 +500,7 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
                           onDownload={() => handleDownload(file.id)}
                           onShare={() => alert("Share functionality coming soon!")}
                           onDelete={() => requestDelete(file.id, false)}
-                          onRestore={async () => { await api.moveToTrash(file.id, false); loadItems(); window.dispatchEvent(new Event("storageUpdated")); }}
+                          onRestore={async () => { await api.moveToTrash(file.id, false); loadItems(true); window.dispatchEvent(new Event("storageUpdated")); }}
                           onPermanentDelete={() => requestDelete(file.id, true)}
                         />
                       ))}
@@ -519,7 +529,7 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
                 if (e.key === 'Enter' && newFolderName.trim()) {
                   setIsCreateFolderOpen(false);
                   await api.createFolder(newFolderName.trim(), currentParentId);
-                  await loadItems();
+                  await loadItems(true);
                 }
               }}
             />
@@ -535,7 +545,7 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
                   if (newFolderName.trim()) {
                     setIsCreateFolderOpen(false);
                     await api.createFolder(newFolderName.trim(), currentParentId);
-                    await loadItems();
+                    await loadItems(true);
                   }
                 }}
                 className="cozy-button text-primary-foreground px-5 py-2 rounded-xl text-sm font-medium"

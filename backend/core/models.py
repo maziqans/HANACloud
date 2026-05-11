@@ -18,6 +18,7 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     # Default to 50 GB
     storage_limit_bytes = models.BigIntegerField(default=50 * 1024 * 1024 * 1024)
+    avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
 
     def __str__(self):
         return f"{self.user.username} Profile"

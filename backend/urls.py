@@ -4,6 +4,8 @@ URL configuration for core project.
 from django.contrib import admin
 from django.urls import path
 import views
+from django.conf import settings
+from django.conf.urls.static import static
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 urlpatterns = [
@@ -30,3 +32,6 @@ urlpatterns = [
     path('api/storage/request/', views.request_storage, name='request_storage'),
     path('api/account/', views.delete_account, name='delete_account'),
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

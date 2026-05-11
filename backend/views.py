@@ -4,25 +4,41 @@ from rest_framework.response import Response
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from django.db.models import Sum
+from django.db.models import Sum, Count, Q
 import os
-from core.models import CloudFile
+from core.models import CloudFile, UserProfile
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def current_user(request):
+    avatar_url = None
+    if hasattr(request.user, 'userprofile') and request.user.userprofile.avatar:
+        avatar_url = request.build_absolute_uri(request.user.userprofile.avatar.url)
+        
     return Response({
         "username": request.user.username,
         "email": request.user.email,
         "first_name": request.user.first_name,
         "last_name": request.user.last_name,
+        "avatar_url": avatar_url,
     })
 
 @api_view(['POST'])
-@permission_classes([AllowAny]) # Note: Change to IsAuthenticated once login is wired up
+@permission_classes([IsAuthenticated])
 def profile_settings(request):
-    # Here you would map to request.user.set_password(request.data['password'])
-    # or save the uploaded avatar to request.user.profile.avatar
+    user = request.user
+    profile, created = UserProfile.objects.get_or_create(user=user)
+
+    # Handle avatar upload
+    if 'avatar' in request.FILES:
+        profile.avatar = request.FILES['avatar']
+        profile.save()
+
+    # Handle password change
+    if 'password' in request.data and request.data['password']:
+        user.set_password(request.data['password'])
+        user.save()
+        
     return Response({"message": "Profile updated successfully"})
 
 @api_view(['GET'])
@@ -59,16 +75,19 @@ def drive_items(request):
     else:
         files = CloudFile.objects.filter(user=request.user, parent__isnull=True, is_trashed=False).order_by('-updated_at')
     
+    files = files.annotate(
+        item_count_agg=Count('children', filter=Q(children__is_trashed=False))
+    )
+    
     data = []
     for f in files:
-        item_count = f.children.filter(is_trashed=False).count() if f.is_folder else 0
         data.append({
             "id": str(f.id),
             "name": f.name.split('/')[-1] if '/' in f.name else f.name,
             "item_type": "FOLDER" if f.is_folder else "FILE",
             "size_bytes": f.file_size,
             "updated_at": f.updated_at.isoformat(),
-            "item_count": item_count,
+            "item_count": f.item_count_agg if f.is_folder else 0,
             "is_starred": f.is_starred
         })
     return Response(data)
@@ -151,17 +170,19 @@ def move_to_trash(request, item_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def trash_items(request):
-    files = CloudFile.objects.filter(user=request.user, is_trashed=True).order_by('-updated_at')
+    files = CloudFile.objects.filter(user=request.user, is_trashed=True).annotate(
+        item_count_agg=Count('children', filter=Q(children__is_trashed=True))
+    ).order_by('-updated_at')
+    
     data = []
     for f in files:
-        item_count = f.children.filter(is_trashed=True).count() if f.is_folder else 0
         data.append({
             "id": str(f.id),
             "name": f.name.split('/')[-1] if '/' in f.name else f.name,
             "item_type": "FOLDER" if f.is_folder else "FILE",
             "size_bytes": f.file_size,
             "updated_at": f.updated_at.isoformat(),
-            "item_count": item_count,
+            "item_count": f.item_count_agg if f.is_folder else 0,
             "is_starred": f.is_starred
         })
     return Response(data)
@@ -186,17 +207,19 @@ def recent_items(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def starred_items(request):
-    files = CloudFile.objects.filter(user=request.user, is_trashed=False, is_starred=True).order_by('-updated_at')
+    files = CloudFile.objects.filter(user=request.user, is_trashed=False, is_starred=True).annotate(
+        item_count_agg=Count('children', filter=Q(children__is_trashed=False))
+    ).order_by('-updated_at')
+    
     data = []
     for f in files:
-        item_count = f.children.filter(is_trashed=False).count() if f.is_folder else 0
         data.append({
             "id": str(f.id),
             "name": f.name.split('/')[-1] if '/' in f.name else f.name,
             "item_type": "FOLDER" if f.is_folder else "FILE",
             "size_bytes": f.file_size,
             "updated_at": f.updated_at.isoformat(),
-            "item_count": item_count,
+            "item_count": f.item_count_agg if f.is_folder else 0,
             "is_starred": f.is_starred
         })
     return Response(data)

@@ -183,7 +183,11 @@ export function Sidebar({ onNavigate, activeItem = "My Drive", user, onLogout }:
             className="w-full flex items-center gap-3 mb-4 p-2 -mx-2 rounded-xl profile-button cursor-pointer"
           >
             <div className="w-10 h-10 rounded-xl overflow-hidden bg-gradient-to-br from-sidebar-primary/40 to-sidebar-primary/20 flex items-center justify-center ring-2 ring-sidebar-primary/40">
-            <span className="text-sm font-semibold text-sidebar-primary uppercase">{user?.first_name?.[0] || user?.username?.[0] || 'U'}</span>
+            {user?.avatar_url ? (
+              <img src={user.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-sm font-semibold text-sidebar-primary uppercase">{user?.first_name?.[0] || user?.username?.[0] || 'U'}</span>
+            )}
             </div>
             <div className="flex-1 min-w-0 text-left">
               <p className="text-sm font-medium text-sidebar-foreground truncate">

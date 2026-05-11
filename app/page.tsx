@@ -17,21 +17,25 @@ export default function HANACloudPage() {
 
   const isSettings = ["Profile Settings", "Storage Management", "Security Settings", "Settings"].includes(activeSection)
 
+  const fetchUser = async () => {
+    try {
+      const userData = await api.getCurrentUser();
+      setUser(userData);
+      setIsAuthenticated(true);
+    } catch (e: any) {
+      if (e.response && e.response.status === 401) {
+        api.logout();
+        setIsAuthenticated(false);
+        setUser(null);
+      }
+    }
+  };
+
   useEffect(() => {
     const checkAuth = async () => {
       const token = localStorage.getItem('access_token');
       if (token) {
-        try {
-          const userData = await api.getCurrentUser();
-          setUser(userData);
-          setIsAuthenticated(true);
-        } catch (e: any) {
-          if (e.response && e.response.status === 401) {
-            api.logout();
-          } else {
-            setIsAuthenticated(true);
-          }
-        }
+        await fetchUser();
       }
       setIsChecking(false);
     };
@@ -42,9 +46,7 @@ export default function HANACloudPage() {
     e.preventDefault();
     try {
       await api.login({ username, password });
-      const userData = await api.getCurrentUser();
-      setUser(userData);
-      setIsAuthenticated(true);
+      await fetchUser();
     } catch (err) {
       alert("Invalid credentials. Please try again.");
     }
@@ -94,9 +96,9 @@ export default function HANACloudPage() {
         onLogout={handleLogout}
       />
       {isSettings ? (
-        <SettingsContent key={activeSection} activeSection={activeSection} />
+        <SettingsContent user={user} onUpdate={fetchUser} activeSection={activeSection} />
       ) : (
-        <MainContent key={activeSection} activeSection={activeSection} />
+        <MainContent user={user} activeSection={activeSection} />
       )}
     </div>
   )

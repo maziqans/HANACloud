@@ -91,7 +91,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # THIS IS CRITICAL: Map Media Root to the hardware volume path
-MEDIA_URL = 'media/'
+MEDIA_URL = '/media/'
 MEDIA_ROOT = '/app/storage'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
