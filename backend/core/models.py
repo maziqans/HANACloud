@@ -3,8 +3,12 @@ from django.db import models
 from django.contrib.auth.models import User
 
 def user_directory_path(instance, filename):
-    # Files will be uploaded to: /app/storage/user_<username>/<filename>
-    return f'user_{instance.user.username}/{filename}'
+    path_parts = [filename]
+    curr = instance.parent
+    while curr:
+        path_parts.insert(0, curr.name)
+        curr = curr.parent
+    return f'user_{instance.user.username}/{"/".join(path_parts)}'
 
 class CloudFile(models.Model):
     CATEGORY_CHOICES = [
@@ -15,6 +19,7 @@ class CloudFile(models.Model):
         ('OTHER', 'Other'),
     ]
 
+    parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='children')
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='files')
     file = models.FileField(upload_to=user_directory_path, null=True, blank=True)
     name = models.CharField(max_length=255)

@@ -7,7 +7,7 @@ import { ViewToggle } from "./view-toggle"
 import { FolderCard } from "./folder-card"
 import { FileCard } from "./file-card"
 import { FileRow } from "./file-row"
-import { Inbox, CheckCircle2, Loader2 } from "lucide-react"
+import { Inbox, CheckCircle2, Loader2, MoreHorizontal, ChevronRight } from "lucide-react"
 
 export interface CloudItem {
   id: string
@@ -60,10 +60,12 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
   const [uploadState, setUploadState] = useState<{ progress: number, total: number, complete: boolean, filename: string } | null>(null)
   const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false)
   const [newFolderName, setNewFolderName] = useState("")
+  const [currentParentId, setCurrentParentId] = useState<string | null>(null)
+  const [navStack, setNavStack] = useState<{id: string, name: string}[]>([])
 
   const loadItems = async () => {
     try {
-      const data = await api.fetchItems(null)
+      const data = await api.fetchItems(currentParentId)
       setCurrentItems(data)
     } catch (error) {
       console.error("Failed to fetch items:", error)
@@ -72,7 +74,7 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
 
   useEffect(() => {
     loadItems()
-  }, [])
+  }, [currentParentId])
 
   useEffect(() => {
     const handleCreateFolder = () => {
@@ -125,7 +127,7 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
     setUploadState({ progress: 0, total: files.length, complete: false, filename: fileNames })
 
     try {
-      await api.uploadFiles(formData, (progressEvent) => {
+      await api.uploadFiles(formData, currentParentId, (progressEvent) => {
         const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
         setUploadState(prev => prev ? { ...prev, progress: percentCompleted } : null)
       })
@@ -153,6 +155,22 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
     document.body.removeChild(link)
   }
 
+  const handleDoubleClick = (item: CloudItem) => {
+    if (item.item_type === "FOLDER") {
+      setCurrentParentId(item.id)
+      setNavStack(prev => [...prev, { id: item.id, name: item.name }])
+      setSelectedItems(new Set())
+    } else {
+      handleDownload(item.id)
+    }
+  }
+
+  const navigateTo = (index: number) => {
+    const newStack = navStack.slice(0, index + 1)
+    setNavStack(newStack)
+    setCurrentParentId(newStack[newStack.length - 1].id)
+  }
+
   const toggleSelection = (id: string) => {
     setSelectedItems((prev) => {
       const newSet = new Set(prev)
@@ -163,6 +181,18 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
       }
       return newSet
     })
+  }
+
+  const handleDeleteSelected = async () => {
+    if (window.confirm(`Are you sure you want to delete ${selectedItems.size} item(s)?`)) {
+      for (const idStr of selectedItems) {
+        const id = idStr.replace('file-', '').replace('folder-', '')
+        await api.moveToTrash(id)
+      }
+      setSelectedItems(new Set())
+      await loadItems()
+      window.dispatchEvent(new Event("storageUpdated"))
+    }
   }
 
   return (
@@ -180,9 +210,25 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
         {/* Section Title */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">
-              {activeSection}
-            </h1>
+            <div className="flex items-center gap-2 text-2xl font-semibold text-foreground">
+              <button 
+                onClick={() => { setCurrentParentId(null); setNavStack([]); setSelectedItems(new Set()); }}
+                className="hover:underline"
+              >
+                {activeSection}
+              </button>
+              {navStack.map((nav, index) => (
+                <div key={nav.id} className="flex items-center gap-2">
+                  <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                  <button 
+                    onClick={() => navigateTo(index)}
+                    className="hover:underline truncate max-w-[150px]"
+                  >
+                    {nav.name}
+                  </button>
+                </div>
+              ))}
+            </div>
             <p className="text-sm text-muted-foreground mt-1">
               Welcome back! Here are your files.
             </p>
@@ -197,6 +243,18 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
 
       {/* Content Area */}
       <div className="flex-1 overflow-auto px-8 py-6">
+        {/* Selection Action Bar */}
+        {selectedItems.size > 0 && (
+          <div className="bg-primary text-primary-foreground px-6 py-3 rounded-2xl flex items-center justify-between mb-6 shadow-lg animate-in slide-in-from-top-2">
+            <span className="font-medium">{selectedItems.size} document(s) selected</span>
+            <div className="flex items-center gap-4 text-sm font-medium">
+              <button onClick={() => alert("Move functionality coming soon!")} className="hover:underline">Move</button>
+              <button onClick={() => alert("Copy functionality coming soon!")} className="hover:underline">Copy</button>
+              <button onClick={handleDeleteSelected} className="hover:underline text-red-200">Delete</button>
+            </div>
+          </div>
+        )}
+
         {folders.length === 0 && files.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-muted-foreground animate-in fade-in zoom-in-95 duration-700 delay-150">
             <div className="w-20 h-20 rounded-full bg-secondary/50 flex items-center justify-center mb-6">
@@ -216,13 +274,31 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
                 {view === "grid" ? (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                     {folders.map((folder) => (
-                      <FolderCard
-                        key={folder.id}
-                        name={folder.name}
-                        itemCount={0}
-                        selected={selectedItems.has(`folder-${folder.id}`)}
-                        onSelect={() => toggleSelection(`folder-${folder.id}`)}
-                      />
+                      <div 
+                        key={folder.id} 
+                        onDoubleClick={() => handleDoubleClick(folder)}
+                        className="relative group"
+                      >
+                        <FolderCard
+                          name={folder.name}
+                          itemCount={0}
+                          selected={selectedItems.has(`folder-${folder.id}`)}
+                          onSelect={() => toggleSelection(`folder-${folder.id}`)}
+                        />
+                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={(e) => { e.stopPropagation(); const el = document.getElementById(`folder-menu-${folder.id}`); if(el) el.classList.toggle('hidden'); }} className="p-1.5 rounded-lg hover:bg-secondary bg-card/50 backdrop-blur border border-border">
+                            <MoreHorizontal className="w-4 h-4" />
+                          </button>
+                          <div id={`folder-menu-${folder.id}`} className="hidden absolute right-0 top-8 w-32 bg-popover border border-border rounded-lg shadow-lg z-50 py-1" onMouseLeave={(e) => e.currentTarget.classList.add('hidden')}>
+                            <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-destructive" onClick={(e) => { 
+                              e.stopPropagation(); 
+                              if(window.confirm("Delete folder?")) {
+                                api.moveToTrash(folder.id).then(() => { loadItems(); window.dispatchEvent(new Event("storageUpdated")); });
+                              }
+                            }}>Delete</button>
+                          </div>
+                        </div>
+                      </div>
                     ))}
                   </div>
                 ) : (
@@ -236,6 +312,10 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
                         modified={folder.updated_at ? new Date(folder.updated_at).toLocaleDateString() : "—"}
                         selected={selectedItems.has(`folder-${folder.id}`)}
                         onSelect={() => toggleSelection(`folder-${folder.id}`)}
+                        onDoubleClick={() => handleDoubleClick(folder)}
+                        onDelete={async () => { if(window.confirm("Delete folder?")) { await api.moveToTrash(folder.id); loadItems(); window.dispatchEvent(new Event("storageUpdated")); } }}
+                        onShare={() => alert("Share functionality coming soon!")}
+                        onDownload={() => alert("Downloading entire folders coming soon!")}
                       />
                     ))}
                   </div>
@@ -259,7 +339,10 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
                         size={formatBytes(file.size_bytes)}
                         selected={selectedItems.has(`file-${file.id}`)}
                         onSelect={() => toggleSelection(`file-${file.id}`)}
+                        onDoubleClick={() => handleDoubleClick(file)}
                         onDownload={() => handleDownload(file.id)}
+                        onShare={() => alert("Share functionality coming soon!")}
+                        onDelete={async () => { if(window.confirm("Delete file?")) { await api.moveToTrash(file.id); loadItems(); window.dispatchEvent(new Event("storageUpdated")); } }}
                       />
                     ))}
                   </div>
@@ -283,7 +366,10 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
                           modified={file.updated_at ? new Date(file.updated_at).toLocaleDateString() : "—"}
                           selected={selectedItems.has(`file-${file.id}`)}
                           onSelect={() => toggleSelection(`file-${file.id}`)}
+                          onDoubleClick={() => handleDoubleClick(file)}
                           onDownload={() => handleDownload(file.id)}
+                          onShare={() => alert("Share functionality coming soon!")}
+                          onDelete={async () => { if(window.confirm("Delete file?")) { await api.moveToTrash(file.id); loadItems(); window.dispatchEvent(new Event("storageUpdated")); } }}
                         />
                       ))}
                     </div>
@@ -310,7 +396,7 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
               onKeyDown={async (e) => {
                 if (e.key === 'Enter' && newFolderName.trim()) {
                   setIsCreateFolderOpen(false);
-                  await api.createFolder(newFolderName.trim());
+                  await api.createFolder(newFolderName.trim(), currentParentId);
                   await loadItems();
                 }
               }}
@@ -326,7 +412,7 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
                 onClick={async () => {
                   if (newFolderName.trim()) {
                     setIsCreateFolderOpen(false);
-                    await api.createFolder(newFolderName.trim());
+                    await api.createFolder(newFolderName.trim(), currentParentId);
                     await loadItems();
                   }
                 }}

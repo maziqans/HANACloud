@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
 from django.db.models import Sum
+import os
 from core.models import CloudFile
 
 @api_view(['GET'])
@@ -47,7 +48,11 @@ def storage_summary(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def drive_items(request):
-    files = CloudFile.objects.filter(user=request.user).order_by('-updated_at')
+    parent_id = request.GET.get('parent_id')
+    if parent_id and parent_id != 'null':
+        files = CloudFile.objects.filter(user=request.user, parent_id=parent_id).order_by('-updated_at')
+    else:
+        files = CloudFile.objects.filter(user=request.user, parent__isnull=True).order_by('-updated_at')
     data = [
         {
             "id": str(f.id),
@@ -62,25 +67,49 @@ def drive_items(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def upload_files(request):
+    parent_id = request.data.get('parent_id')
+    parent = None
+    if parent_id and parent_id != 'null':
+        parent = get_object_or_404(CloudFile, id=parent_id, user=request.user)
+        
     for f in request.FILES.getlist('files'):
-        CloudFile.objects.create(user=request.user, file=f)
+        CloudFile.objects.create(user=request.user, file=f, parent=parent)
     return Response({"message": "Files uploaded successfully"})
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_folder(request):
     name = request.data.get('name')
+    parent_id = request.data.get('parent_id')
     if not name:
         return Response({"error": "Folder name is required"}, status=400)
     
-    CloudFile.objects.create(user=request.user, name=name, is_folder=True, category='FOLDER')
-    return Response({"message": "Folder created successfully"})
+    parent = None
+    if parent_id and parent_id != 'null':
+        parent = get_object_or_404(CloudFile, id=parent_id, user=request.user)
+    
+    folder = CloudFile.objects.create(user=request.user, name=name, is_folder=True, category='FOLDER', parent=parent)
+    
+    # Physically create the folder on disk
+    from django.conf import settings
+    path_parts = [name]
+    curr = parent
+    while curr:
+        path_parts.insert(0, curr.name)
+        curr = curr.parent
+    full_path = os.path.join(settings.MEDIA_ROOT, f'user_{request.user.username}', *path_parts)
+    os.makedirs(full_path, exist_ok=True)
+    
+    return Response({"message": "Folder created successfully", "id": folder.id})
 
 @api_view(['GET'])
 @permission_classes([AllowAny]) # Standard HTML anchor links won't pass JWT headers easily
 def download_file(request, file_id):
     cloud_file = get_object_or_404(CloudFile, id=file_id)
-    return FileResponse(cloud_file.file.open('rb'), as_attachment=True, filename=cloud_file.name)
+    ext = os.path.splitext(cloud_file.name)[1].lower()
+    inline_exts = ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.webp', '.txt']
+    as_attachment = ext not in inline_exts
+    return FileResponse(cloud_file.file.open('rb'), as_attachment=as_attachment, filename=cloud_file.name)
 
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])

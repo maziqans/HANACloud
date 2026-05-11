@@ -26,7 +26,8 @@ export const fetchItems = async (parentId: string | null) => {
   return response.data;
 };
 
-export const uploadFiles = async (formData: FormData, onProgress?: (progressEvent: any) => void) => {
+export const uploadFiles = async (formData: FormData, parentId: string | null, onProgress?: (progressEvent: any) => void) => {
+  if (parentId) formData.append('parent_id', parentId);
   const response = await apiClient.post('/upload/', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
@@ -43,8 +44,8 @@ export const moveToTrash = async (itemId: string) => {
   return response.data;
 };
 
-export const createFolder = async (name: string) => {
-  const response = await apiClient.post('/create-folder/', { name });
+export const createFolder = async (name: string, parentId: string | null) => {
+  const response = await apiClient.post('/create-folder/', { name, parent_id: parentId });
   return response.data;
 };
 

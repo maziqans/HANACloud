@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { FileText, Image, FileVideo, FileAudio, File, MoreHorizontal } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -10,6 +11,10 @@ interface FileCardProps {
   selected?: boolean
   onClick?: () => void
   onSelect?: () => void
+  onDoubleClick?: () => void
+  onDelete?: () => void
+  onShare?: () => void
+  onDownload?: () => void
 }
 
 const fileIcons: Record<string, React.ElementType> = {
@@ -49,14 +54,20 @@ export function FileCard({
   size = "—",
   selected,
   onClick,
-  onSelect
+  onSelect,
+  onDoubleClick,
+  onDelete,
+  onShare,
+  onDownload
 }: FileCardProps) {
   const Icon = fileIcons[type] || fileIcons.default
   const styles = fileStyles[type] || fileStyles.default
+  const [menuOpen, setMenuOpen] = useState(false)
 
   return (
     <div
       onClick={onClick}
+      onDoubleClick={onDoubleClick}
       className={cn(
         "group relative p-4 rounded-2xl cursor-pointer transition-all duration-200 bg-card border border-border cozy-shadow",
         "hover:border-primary/20 hover:shadow-md",
@@ -101,12 +112,21 @@ export function FileCard({
       </button>
 
       {/* More options */}
-      <button
-        onClick={(e) => e.stopPropagation()}
-        className="absolute top-3 right-3 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-secondary transition-all duration-150"
-      >
-        <MoreHorizontal className="w-4 h-4 text-muted-foreground" strokeWidth={2} />
-      </button>
+      <div className="absolute top-3 right-3">
+        <button
+          onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
+          className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-secondary transition-all duration-150"
+        >
+          <MoreHorizontal className="w-4 h-4 text-muted-foreground" strokeWidth={2} />
+        </button>
+        {menuOpen && (
+          <div className="absolute right-0 top-8 w-32 bg-popover border border-border rounded-lg shadow-lg z-50 py-1 animate-in zoom-in-95" onMouseLeave={() => setMenuOpen(false)}>
+            <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDownload?.(); }}>Download / Open</button>
+            <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onShare?.(); }}>Share</button>
+            <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-destructive transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDelete?.(); }}>Delete</button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
