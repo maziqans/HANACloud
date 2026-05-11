@@ -398,8 +398,10 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
                                 <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-destructive" onClick={(e) => { e.stopPropagation(); requestDelete(folder.id, true); }}>Delete Forever</button>
                               </>
                             ) : (
-                              <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); toggleStar(folder.id, !folder.is_starred); }}>{folder.is_starred ? "Remove from Starred" : "Add to Starred"}</button>
-                              <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-destructive transition-colors" onClick={(e) => { e.stopPropagation(); requestDelete(folder.id, false); }}>Move to Trash</button>
+                              <>
+                                <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); toggleStar(folder.id, !folder.is_starred); }}>{folder.is_starred ? "Remove from Starred" : "Add to Starred"}</button>
+                                <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-destructive transition-colors" onClick={(e) => { e.stopPropagation(); requestDelete(folder.id, false); }}>Move to Trash</button>
+                              </>
                             )}
                           </div>
                         </div>
