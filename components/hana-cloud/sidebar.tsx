@@ -65,6 +65,7 @@ export function Sidebar({ onNavigate, activeItem = "My Drive", user, onLogout }:
   }, [])
 
   const isSettingsMode = ["Profile Settings", "Storage Management", "Security Settings", "Settings"].includes(activeItem)
+  const isTrashMode = activeItem === "Trash"
   const currentNavItems = isSettingsMode ? settingsItems : navItems
 
   return (
@@ -90,7 +91,7 @@ export function Sidebar({ onNavigate, activeItem = "My Drive", user, onLogout }:
 
       {/* Add New Button - Golden */}
       <div className="px-4 pb-4 relative">
-        {isSettingsMode ? (
+        {isSettingsMode || isTrashMode ? (
           <button
             onClick={() => onNavigate?.("My Drive")}
             className="w-full bg-sidebar-accent/50 hover:bg-sidebar-accent text-sidebar-foreground rounded-xl px-4 py-3 flex items-center gap-2.5 transition-cozy"

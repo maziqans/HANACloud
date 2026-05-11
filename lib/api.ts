@@ -37,12 +37,27 @@ export const uploadFiles = async (formData: FormData, parentId: string | null, o
   return response.data;
 };
 
-export const moveToTrash = async (itemId: string) => {
+export const moveToTrash = async (itemId: string, is_trashed: boolean = true) => {
   const response = await apiClient.patch(`/drive/${itemId}/`, {
-    is_trashed: true,
+    is_trashed,
   });
   return response.data;
 };
+
+export const fetchTrashItems = async () => {
+  const response = await apiClient.get('/trash/');
+  return response.data;
+}
+
+export const emptyTrash = async () => {
+  const response = await apiClient.delete('/trash/empty/');
+  return response.data;
+}
+
+export const permanentDelete = async (itemId: string) => {
+  const response = await apiClient.delete(`/drive/permanent/${itemId}/`);
+  return response.data;
+}
 
 export const createFolder = async (name: string, parentId: string | null) => {
   const response = await apiClient.post('/create-folder/', { name, parent_id: parentId });

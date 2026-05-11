@@ -10,10 +10,13 @@ interface FileRowProps {
   size?: string
   modified?: string
   selected?: boolean
+  isTrash?: boolean
   onClick?: () => void
   onSelect?: () => void
   onDoubleClick?: () => void
   onDelete?: () => void
+  onRestore?: () => void
+  onPermanentDelete?: () => void
   onShare?: () => void
   onDownload?: () => void
 }
@@ -55,10 +58,13 @@ export function FileRow({
   size = "—", 
   modified = "—",
   selected,
+  isTrash,
   onClick,
   onSelect,
   onDoubleClick,
   onDelete,
+  onRestore,
+  onPermanentDelete,
   onShare,
   onDownload
 }: FileRowProps) {
@@ -126,9 +132,18 @@ export function FileRow({
         </button>
         {menuOpen && (
           <div className="absolute right-0 top-8 w-32 bg-popover border border-border rounded-lg shadow-lg z-50 py-1 animate-in zoom-in-95" onMouseLeave={() => setMenuOpen(false)}>
-            <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDownload?.(); }}>Download / Open</button>
-            <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onShare?.(); }}>Share</button>
-            <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-destructive transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDelete?.(); }}>Delete</button>
+            {isTrash ? (
+              <>
+                <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onRestore?.(); }}>Restore</button>
+                <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-destructive transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onPermanentDelete?.(); }}>Delete Forever</button>
+              </>
+            ) : (
+              <>
+                <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDownload?.(); }}>Download / Open</button>
+                <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onShare?.(); }}>Share</button>
+                <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-destructive transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDelete?.(); }}>Delete</button>
+              </>
+            )}
           </div>
         )}
       </div>

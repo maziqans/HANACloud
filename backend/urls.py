@@ -18,6 +18,10 @@ urlpatterns = [
     path('api/create-folder/', views.create_folder, name='create_folder'),
     path('api/download/<int:file_id>/', views.download_file, name='download_file'),
     
+    path('api/trash/', views.trash_items, name='trash_items'),
+    path('api/trash/empty/', views.empty_trash, name='empty_trash'),
+    path('api/drive/permanent/<int:item_id>/', views.permanent_delete, name='permanent_delete'),
+    
     path('api/profile/', views.profile_settings, name='profile_settings'),
     path('api/storage/summary/', views.storage_summary, name='storage_summary'),
     path('api/storage/request/', views.request_storage, name='request_storage'),

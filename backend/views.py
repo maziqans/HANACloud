@@ -50,9 +50,9 @@ def storage_summary(request):
 def drive_items(request):
     parent_id = request.GET.get('parent_id')
     if parent_id and parent_id != 'null':
-        files = CloudFile.objects.filter(user=request.user, parent_id=parent_id).order_by('-updated_at')
+        files = CloudFile.objects.filter(user=request.user, parent_id=parent_id, is_trashed=False).order_by('-updated_at')
     else:
-        files = CloudFile.objects.filter(user=request.user, parent__isnull=True).order_by('-updated_at')
+        files = CloudFile.objects.filter(user=request.user, parent__isnull=True, is_trashed=False).order_by('-updated_at')
     data = [
         {
             "id": str(f.id),
@@ -114,8 +114,37 @@ def download_file(request, file_id):
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
 def move_to_trash(request, item_id):
+    item = get_object_or_404(CloudFile, id=item_id, user=request.user)
+    is_trashed = request.data.get('is_trashed', True)
+    
+    def set_trashed(folder, state):
+        folder.is_trashed = state
+        folder.save()
+        for child in folder.children.all():
+            set_trashed(child, state)
+            
+    set_trashed(item, is_trashed)
+    return Response({"message": f"Item {'moved to trash' if is_trashed else 'restored'}"})
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def trash_items(request):
+    files = CloudFile.objects.filter(user=request.user, is_trashed=True).order_by('-updated_at')
+    data = [{"id": str(f.id), "name": f.name, "item_type": "FOLDER" if f.is_folder else "FILE", "size_bytes": f.file_size, "updated_at": f.updated_at.isoformat()} for f in files]
+    return Response(data)
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def empty_trash(request):
+    # Calling .delete() triggers our physical post_delete signals!
+    CloudFile.objects.filter(user=request.user, is_trashed=True).delete()
+    return Response({"message": "Trash emptied"})
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def permanent_delete(request, item_id):
     CloudFile.objects.filter(id=item_id, user=request.user).delete()
-    return Response({"message": "Item moved to trash"})
+    return Response({"message": "Item permanently deleted"})
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
