@@ -10,5 +10,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+# Gather all the CSS and JS files for the Admin dashboard
+RUN python manage.py collectstatic --noinput
+
 # Run the application with Gunicorn
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "wsgi:application"]
