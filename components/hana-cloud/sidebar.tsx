@@ -115,19 +115,28 @@ export function Sidebar({ onNavigate, activeItem = "My Drive", user, onLogout }:
             {/* Dropdown Menu - Dark theme */}
             {dropdownOpen && (
               <div className="absolute left-4 right-4 top-full mt-2 z-50 dropdown-dark rounded-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
-                <button className="w-full px-4 py-3 flex items-center gap-3 text-sidebar-foreground hover:bg-sidebar-accent transition-colors text-left">
+                <button 
+                  onClick={() => { setDropdownOpen(false); window.dispatchEvent(new Event('createFolder')) }}
+                  className="w-full px-4 py-3 flex items-center gap-3 text-sidebar-foreground hover:bg-sidebar-accent transition-colors text-left"
+                >
                   <div className="w-8 h-8 rounded-lg bg-sidebar-primary/20 flex items-center justify-center">
                     <FolderPlus className="w-4 h-4 text-sidebar-primary" strokeWidth={2} />
                   </div>
                   <span className="text-sm font-medium">New Folder</span>
                 </button>
-                <button className="w-full px-4 py-3 flex items-center gap-3 text-sidebar-foreground hover:bg-sidebar-accent transition-colors text-left">
+                <button 
+                  onClick={() => { setDropdownOpen(false); document.getElementById('file-upload')?.click() }}
+                  className="w-full px-4 py-3 flex items-center gap-3 text-sidebar-foreground hover:bg-sidebar-accent transition-colors text-left"
+                >
                   <div className="w-8 h-8 rounded-lg bg-sidebar-primary/20 flex items-center justify-center">
                     <Upload className="w-4 h-4 text-sidebar-primary" strokeWidth={2} />
                   </div>
                   <span className="text-sm font-medium">File Upload</span>
                 </button>
-                <button className="w-full px-4 py-3 flex items-center gap-3 text-sidebar-foreground hover:bg-sidebar-accent transition-colors text-left">
+                <button 
+                  onClick={() => { setDropdownOpen(false); document.getElementById('folder-upload')?.click() }}
+                  className="w-full px-4 py-3 flex items-center gap-3 text-sidebar-foreground hover:bg-sidebar-accent transition-colors text-left"
+                >
                   <div className="w-8 h-8 rounded-lg bg-sidebar-primary/20 flex items-center justify-center">
                     <FolderInput className="w-4 h-4 text-sidebar-primary" strokeWidth={2} />
                   </div>

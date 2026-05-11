@@ -52,7 +52,7 @@ def drive_items(request):
         {
             "id": str(f.id),
             "name": f.name,
-            "item_type": "FILE",
+            "item_type": "FOLDER" if f.is_folder else "FILE",
             "size_bytes": f.file_size,
             "updated_at": f.uploaded_at.isoformat()
         } for f in files
@@ -65,6 +65,16 @@ def upload_files(request):
     for f in request.FILES.getlist('files'):
         CloudFile.objects.create(user=request.user, file=f)
     return Response({"message": "Files uploaded successfully"})
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_folder(request):
+    name = request.data.get('name')
+    if not name:
+        return Response({"error": "Folder name is required"}, status=400)
+    
+    CloudFile.objects.create(user=request.user, name=name, is_folder=True, category='FOLDER')
+    return Response({"message": "Folder created successfully"})
 
 @api_view(['GET'])
 @permission_classes([AllowAny]) # Standard HTML anchor links won't pass JWT headers easily

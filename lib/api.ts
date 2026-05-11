@@ -26,11 +26,12 @@ export const fetchItems = async (parentId: string | null) => {
   return response.data;
 };
 
-export const uploadFiles = async (formData: FormData) => {
+export const uploadFiles = async (formData: FormData, onProgress?: (progressEvent: any) => void) => {
   const response = await apiClient.post('/upload/', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
     },
+    onUploadProgress: onProgress,
   });
   return response.data;
 };
@@ -39,6 +40,11 @@ export const moveToTrash = async (itemId: string) => {
   const response = await apiClient.patch(`/drive/${itemId}/`, {
     is_trashed: true,
   });
+  return response.data;
+};
+
+export const createFolder = async (name: string) => {
+  const response = await apiClient.post('/create-folder/', { name });
   return response.data;
 };
 

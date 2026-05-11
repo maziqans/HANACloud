@@ -7,7 +7,7 @@ import { ViewToggle } from "./view-toggle"
 import { FolderCard } from "./folder-card"
 import { FileCard } from "./file-card"
 import { FileRow } from "./file-row"
-import { Inbox } from "lucide-react"
+import { Inbox, CheckCircle2, Loader2 } from "lucide-react"
 
 export interface CloudItem {
   id: string
@@ -57,6 +57,7 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   const [currentItems, setCurrentItems] = useState<CloudItem[]>([])
+  const [uploadState, setUploadState] = useState<{ progress: number, total: number, complete: boolean } | null>(null)
 
   const loadItems = async () => {
     try {
@@ -69,6 +70,18 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
 
   useEffect(() => {
     loadItems()
+  }, [])
+
+  useEffect(() => {
+    const handleCreateFolder = async () => {
+      const name = window.prompt("Enter folder name:")
+      if (name) {
+        await api.createFolder(name)
+        await loadItems()
+      }
+    }
+    window.addEventListener("createFolder", handleCreateFolder)
+    return () => window.removeEventListener("createFolder", handleCreateFolder)
   }, [])
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -109,10 +122,17 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
       return
     }
 
+    setUploadState({ progress: 0, total: files.length, complete: false })
+
     try {
-      await api.uploadFiles(formData)
+      await api.uploadFiles(formData, (progressEvent) => {
+        const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
+        setUploadState(prev => prev ? { ...prev, progress: percentCompleted } : null)
+      })
       await loadItems()
       window.dispatchEvent(new Event("storageUpdated"))
+      setUploadState(prev => prev ? { ...prev, complete: true, progress: 100 } : null)
+      setTimeout(() => setUploadState(null), 4000)
     } catch (error) {
       console.error("Failed to upload files:", error)
     } finally {
@@ -148,6 +168,7 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
   return (
     <main className="flex-1 flex flex-col min-h-screen overflow-hidden bg-background animate-in fade-in duration-700">
       <input type="file" multiple className="hidden" id="file-upload" onChange={handleUpload} />
+      <input type="file" multiple webkitdirectory="true" className="hidden" id="folder-upload" onChange={handleUpload} />
 
       {/* Header */}
       <header className="px-8 py-6 border-b border-border bg-card/50">
@@ -273,6 +294,24 @@ export function MainContent({ activeSection = "My Drive" }: MainContentProps) {
           </>
         )}
       </div>
+
+      {/* Upload Progress Tab */}
+      {uploadState && (
+        <div className="fixed bottom-6 right-6 w-80 bg-card border border-border shadow-2xl rounded-xl overflow-hidden z-50 animate-in slide-in-from-bottom-5">
+          <div className="bg-secondary/50 px-4 py-3 border-b border-border flex justify-between items-center">
+            <span className="text-sm font-medium flex items-center gap-2">
+              {uploadState.complete ? (
+                <><CheckCircle2 className="w-4 h-4 text-green-500" /> Upload complete</>
+              ) : (
+                <><Loader2 className="w-4 h-4 animate-spin text-primary" /> Uploading {uploadState.total} item(s)</>
+              )}
+            </span>
+          </div>
+          <div className="h-1.5 w-full bg-secondary">
+             <div className="h-full bg-primary transition-all duration-300" style={{ width: `${uploadState.progress}%` }} />
+          </div>
+        </div>
+      )}
     </main>
   )
 }

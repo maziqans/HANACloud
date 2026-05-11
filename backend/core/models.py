@@ -11,12 +11,14 @@ class CloudFile(models.Model):
         ('IMAGE', 'Image'),
         ('VIDEO', 'Video'),
         ('DOCUMENT', 'Document'),
+        ('FOLDER', 'Folder'),
         ('OTHER', 'Other'),
     ]
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='files')
-    file = models.FileField(upload_to=user_directory_path)
+    file = models.FileField(upload_to=user_directory_path, null=True, blank=True)
     name = models.CharField(max_length=255)
+    is_folder = models.BooleanField(default=False)
     file_size = models.BigIntegerField(default=0)
     category = models.CharField(max_length=10, choices=CATEGORY_CHOICES, default='OTHER')
     uploaded_at = models.DateTimeField(auto_now_add=True)
