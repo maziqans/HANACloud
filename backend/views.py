@@ -53,15 +53,18 @@ def drive_items(request):
         files = CloudFile.objects.filter(user=request.user, parent_id=parent_id, is_trashed=False).order_by('-updated_at')
     else:
         files = CloudFile.objects.filter(user=request.user, parent__isnull=True, is_trashed=False).order_by('-updated_at')
-    data = [
-        {
+    
+    data = []
+    for f in files:
+        item_count = f.children.filter(is_trashed=False).count() if f.is_folder else 0
+        data.append({
             "id": str(f.id),
             "name": f.name,
             "item_type": "FOLDER" if f.is_folder else "FILE",
             "size_bytes": f.file_size,
-            "updated_at": f.updated_at.isoformat()
-        } for f in files
-    ]
+            "updated_at": f.updated_at.isoformat(),
+            "item_count": item_count
+        })
     return Response(data)
 
 @api_view(['POST'])
@@ -130,7 +133,17 @@ def move_to_trash(request, item_id):
 @permission_classes([IsAuthenticated])
 def trash_items(request):
     files = CloudFile.objects.filter(user=request.user, is_trashed=True).order_by('-updated_at')
-    data = [{"id": str(f.id), "name": f.name, "item_type": "FOLDER" if f.is_folder else "FILE", "size_bytes": f.file_size, "updated_at": f.updated_at.isoformat()} for f in files]
+    data = []
+    for f in files:
+        item_count = f.children.filter(is_trashed=True).count() if f.is_folder else 0
+        data.append({
+            "id": str(f.id),
+            "name": f.name,
+            "item_type": "FOLDER" if f.is_folder else "FILE",
+            "size_bytes": f.file_size,
+            "updated_at": f.updated_at.isoformat(),
+            "item_count": item_count
+        })
     return Response(data)
 
 @api_view(['DELETE'])
