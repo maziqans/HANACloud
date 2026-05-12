@@ -35,6 +35,9 @@ urlpatterns = [
     path('api/share/<str:item_id>/', views.share_item),
     path('api/shared/<str:token>/', views.shared_item_info),
 
+    path('api/move/', views.move_items),
+    path('api/copy/', views.copy_items),
+
 ]
 
 if settings.DEBUG:

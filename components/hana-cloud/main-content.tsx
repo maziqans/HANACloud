@@ -74,6 +74,17 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
   const isSelecting = useRef(false)
   const prevSelectedRef = useRef<Set<string>>(new Set())
   const [previewItem, setPreviewItem] = useState<CloudItem | null>(null)
+  const [shareModal, setShareModal] = useState<{isOpen: boolean, url: string} | null>(null)
+  const [isCopied, setIsCopied] = useState(false)
+
+  const [folderPicker, setFolderPicker] = useState<{
+    isOpen: boolean;
+    action: "move" | "copy";
+    currentFolderId: string | null;
+    navStack: {id: string, name: string}[];
+  } | null>(null);
+  const [pickerFolders, setPickerFolders] = useState<CloudItem[]>([]);
+  const [isPickerLoading, setIsPickerLoading] = useState(false);
   
   const [confirmAction, setConfirmAction] = useState<{
     isOpen: boolean;
@@ -118,6 +129,25 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
       }
     }
   }
+
+  useEffect(() => {
+    if (folderPicker?.isOpen) {
+      const loadPickerFolders = async () => {
+        setIsPickerLoading(true);
+        try {
+          const data = await api.fetchItems(folderPicker.currentFolderId);
+          if (Array.isArray(data)) {
+            setPickerFolders(data.filter(item => item.item_type === "FOLDER"));
+          }
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setIsPickerLoading(false);
+        }
+      }
+      loadPickerFolders();
+    }
+  }, [folderPicker?.currentFolderId, folderPicker?.isOpen]);
 
   useEffect(() => {
     loadItems();
@@ -375,11 +405,47 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
       
       // Dynamically constructs using the active domain (IP or cloud.hanacasa.my)
       const shareUrl = `${window.location.origin}/share/${data.share_token}`;
-      await navigator.clipboard.writeText(shareUrl);
-      alert(`Secure share link copied to clipboard!\n\n${shareUrl}`);
+      
+      setShareModal({ isOpen: true, url: shareUrl });
+      setIsCopied(false);
     } catch (error) {
       console.error(error);
       alert("Failed to generate share link.");
+    }
+  }
+
+  const openFolderPicker = (action: "move" | "copy") => {
+    setFolderPicker({ isOpen: true, action, currentFolderId: null, navStack: [] });
+  }
+
+  const handleActionConfirm = async () => {
+    if (!folderPicker) return;
+    
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api";
+    const token = localStorage.getItem("access_token") || localStorage.getItem("token") || "";
+    const itemIds = Array.from(selectedItems).map(id => id.replace(/file-|folder-/, ''));
+    
+    try {
+      const res = await fetch(`${baseUrl}/${folderPicker.action}/`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          item_ids: itemIds,
+          target_parent_id: folderPicker.currentFolderId
+        })
+      });
+      
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || `Failed to ${folderPicker.action}`);
+      }
+      
+      setFolderPicker(null);
+      setSelectedItems(new Set());
+      await loadItems(true);
+      window.dispatchEvent(new Event("storageUpdated"));
+    } catch (err: any) {
+      alert(err.message);
     }
   }
 
@@ -537,8 +603,8 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
               </div>
             ) : (
               <div className="flex items-center gap-4 text-sm font-medium">
-                <button onClick={() => alert("Move functionality coming soon!")} className="hover:underline">Move</button>
-                <button onClick={() => alert("Copy functionality coming soon!")} className="hover:underline">Copy</button>
+                <button onClick={() => openFolderPicker("move")} className="hover:underline">Move</button>
+                <button onClick={() => openFolderPicker("copy")} className="hover:underline">Copy</button>
                 <button onClick={handleDeleteSelected} className="hover:underline text-red-200">Move to Trash</button>
               </div>
             )}
@@ -922,6 +988,134 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                  />
                </div>
             )}
+          </div>
+        </div>
+      )}
+
+        {/* Share Link Modal */}
+        {shareModal && shareModal.isOpen && (
+          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[110] flex items-center justify-center animate-in fade-in">
+            <div className="bg-card border border-border shadow-2xl rounded-2xl w-full max-w-md p-6 animate-in zoom-in-95">
+              <h3 className="text-lg font-semibold mb-2">Share Link Generated</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Anyone with this link can view and download this item.
+              </p>
+              <div className="flex items-center gap-2 mb-6">
+                <input
+                  type="text"
+                  readOnly
+                  value={shareModal.url}
+                  className="w-full bg-secondary/50 border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground"
+                />
+              </div>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setShareModal(null)}
+                  className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      if (navigator.clipboard && window.isSecureContext) {
+                        await navigator.clipboard.writeText(shareModal.url);
+                      } else {
+                        const input = document.createElement('input');
+                        input.value = shareModal.url;
+                        document.body.appendChild(input);
+                        input.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(input);
+                      }
+                      setIsCopied(true);
+                      setTimeout(() => setIsCopied(false), 2000);
+                    } catch (err) {
+                      alert("Failed to copy. Please select the link and copy manually.");
+                    }
+                  }}
+                  className="cozy-button text-primary-foreground px-5 py-2 rounded-xl text-sm font-medium min-w-[100px]"
+                >
+                  {isCopied ? "Copied!" : "Copy"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+      {/* Folder Picker Modal (Move/Copy) */}
+      {folderPicker && folderPicker.isOpen && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[120] flex items-center justify-center animate-in fade-in">
+          <div className="bg-card border border-border shadow-2xl rounded-2xl w-full max-w-md flex flex-col animate-in zoom-in-95 h-[500px]">
+            <div className="p-6 border-b border-border">
+              <h3 className="text-lg font-semibold capitalize">{folderPicker.action} {selectedItems.size} item(s)</h3>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2 overflow-x-auto whitespace-nowrap custom-scrollbar pb-1">
+                <button 
+                  onClick={() => setFolderPicker(prev => prev ? {...prev, currentFolderId: null, navStack: []} : null)}
+                  className="hover:text-foreground hover:underline transition-colors shrink-0"
+                >
+                  My Drive
+                </button>
+                {folderPicker.navStack.map((nav, idx) => (
+                  <div key={nav.id} className="flex items-center gap-2 shrink-0">
+                    <ChevronRight className="w-4 h-4" />
+                    <button 
+                      onClick={() => setFolderPicker(prev => prev ? {...prev, currentFolderId: nav.id, navStack: prev.navStack.slice(0, idx + 1)} : null)}
+                      className="hover:text-foreground hover:underline transition-colors max-w-[120px] truncate"
+                    >
+                      {nav.name}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+              {isPickerLoading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                </div>
+              ) : pickerFolders.length === 0 ? (
+                <div className="text-center text-muted-foreground py-8 text-sm">
+                  This folder is empty
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {pickerFolders.map(folder => (
+                    <button
+                      key={folder.id}
+                      onClick={() => setFolderPicker(prev => prev ? {
+                        ...prev,
+                        currentFolderId: folder.id,
+                        navStack: [...prev.navStack, { id: folder.id, name: folder.name }]
+                      } : null)}
+                      className="w-full flex items-center gap-3 p-3 hover:bg-secondary rounded-xl transition-colors text-left group"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-500 shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M19.5 21a3 3 0 003-3v-4.5a3 3 0 00-3-3h-15a3 3 0 00-3 3V18a3 3 0 003 3h15zM1.5 10.146V6a3 3 0 013-3h5.379a2.25 2.25 0 011.59.659l2.122 2.121c.14.141.331.22.53.22H19.5a3 3 0 013 3v1.146A4.483 4.483 0 0019.5 9h-15a4.483 4.483 0 00-3 1.146z" /></svg>
+                      </div>
+                      <span className="font-medium text-foreground truncate flex-1">{folder.name}</span>
+                      <ChevronRight className="w-5 h-5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <div className="p-4 border-t border-border flex justify-end gap-3 bg-secondary/20 rounded-b-2xl">
+              <button 
+                onClick={() => setFolderPicker(null)}
+                className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleActionConfirm}
+                className="cozy-button text-primary-foreground px-6 py-2 rounded-xl text-sm font-medium capitalize"
+              >
+                {folderPicker.action} Here
+              </button>
+            </div>
           </div>
         </div>
       )}

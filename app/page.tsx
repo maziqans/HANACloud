@@ -14,6 +14,7 @@ export default function HANACloudPage() {
   const [isChecking, setIsChecking] = useState(true)
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
+  const [isLoggingIn, setIsLoggingIn] = useState(false)
 
   const isSettings = ["Profile Settings", "Storage Management", "Security Settings", "Settings"].includes(activeSection)
 
@@ -44,11 +45,14 @@ export default function HANACloudPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoggingIn(true);
     try {
       await api.login({ username, password });
       await fetchUser();
     } catch (err) {
       alert("Invalid credentials. Please try again.");
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -62,25 +66,55 @@ export default function HANACloudPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background animate-in fade-in duration-700 p-4">
-        <div className="w-full max-w-md p-10 bg-card rounded-3xl border border-border cozy-shadow">
-          <div className="flex flex-col items-center justify-center mb-8">
-            <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center text-primary mb-5 shadow-sm border border-primary/20">
-              <Cloud className="w-8 h-8 text-primary" strokeWidth={1.5} />
-            </div>
-            <h1 className="text-3xl font-light tracking-tight text-center text-foreground">Welcome to HANACloud</h1>
-            <p className="text-sm text-muted-foreground mt-2 text-center">Your private storage</p>
+      <div className="min-h-screen flex items-center justify-center relative bg-slate-950 overflow-hidden font-sans">
+        {/* Background Image with a subtle zoom-in animation for a premium feel */}
+        <div 
+          className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat animate-in zoom-in duration-1000"
+          style={{ backgroundImage: `url('/login-bg.png')` }}
+        />
+        
+        {/* Elegant dark gradient overlay to ensure text readability */}
+        <div className="absolute inset-0 z-0 bg-gradient-to-b from-black/40 via-black/50 to-black/80" />
+
+        {/* Luxury Glassmorphism Login Card */}
+        <div className="relative z-10 w-full max-w-md p-10 md:p-14 bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 animate-in fade-in slide-in-from-bottom-8 duration-700">
+          
+          {/* Header Section */}
+          <div className="text-center mb-12">
+            <h1 className="text-4xl font-serif text-white tracking-wider mb-2 drop-shadow-sm">
+              HANACloud
+            </h1>
+            <div className="h-px w-12 bg-white/40 mx-auto my-5" />
+            <p className="text-white/80 text-xs tracking-[0.3em] uppercase font-light">
+              Exclusive Access
+            </p>
           </div>
-          <form onSubmit={handleLogin} className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium mb-2 text-muted-foreground">Username</label>
-              <input type="text" value={username} onChange={e => setUsername(e.target.value)} className="w-full bg-secondary/50 border border-border rounded-xl px-4 py-3 text-sm focus:bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all shadow-sm" required placeholder="Enter your username" />
+
+          {/* Form Section */}
+          <form onSubmit={handleLogin} className="space-y-8">
+            <div className="space-y-2 group">
+              <label className="block text-[10px] font-semibold text-white/60 uppercase tracking-widest transition-colors group-focus-within:text-white">
+                Username
+              </label>
+              <input type="text" value={username} onChange={e => setUsername(e.target.value)} className="w-full bg-transparent border-b border-white/30 focus:border-white text-white px-0 py-2 outline-none transition-colors placeholder:text-white/20 text-sm" required placeholder="Enter your username" />
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-2 text-muted-foreground">Password</label>
-              <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-secondary/50 border border-border rounded-xl px-4 py-3 text-sm focus:bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all shadow-sm" required placeholder="••••••••" />
+            
+            <div className="space-y-2 group">
+              <label className="block text-[10px] font-semibold text-white/60 uppercase tracking-widest transition-colors group-focus-within:text-white">
+                Password
+              </label>
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-transparent border-b border-white/30 focus:border-white text-white px-0 py-2 outline-none transition-colors placeholder:text-white/20 text-sm" required placeholder="••••••••" />
             </div>
-            <button type="submit" className="w-full cozy-button text-primary-foreground px-4 py-3.5 rounded-full font-medium mt-4 shadow-sm">Sign In</button>
+
+            <div className="pt-4">
+              <button 
+                type="submit" 
+                disabled={isLoggingIn}
+                className="w-full bg-white text-slate-900 py-4 font-medium tracking-widest uppercase text-xs hover:bg-white/90 transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] disabled:opacity-70"
+              >
+                {isLoggingIn ? "Authenticating..." : "Sign In"}
+              </button>
+            </div>
           </form>
         </div>
       </div>

@@ -322,6 +322,96 @@ def starred_items(request):
         })
     return Response(data)
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def move_items(request):
+    item_ids = request.data.get('item_ids', [])
+    target_parent_id = request.data.get('target_parent_id')
+    
+    target_parent = None
+    if target_parent_id and target_parent_id != 'null':
+        target_parent = get_object_or_404(CloudFile, id=target_parent_id, user=request.user, is_folder=True)
+        
+    items = CloudFile.objects.filter(id__in=item_ids, user=request.user)
+    
+    def is_descendant(folder, target):
+        curr = target
+        while curr:
+            if curr.id == folder.id:
+                return True
+            curr = curr.parent
+        return False
+
+    for item in items:
+        if item.is_folder and target_parent and is_descendant(item, target_parent):
+            return Response({"error": f"Cannot move '{item.name}' into its own subfolder."}, status=400)
+            
+    items.update(parent=target_parent)
+    return Response({"message": "Items moved successfully"})
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def copy_items(request):
+    item_ids = request.data.get('item_ids', [])
+    target_parent_id = request.data.get('target_parent_id')
+    
+    target_parent = None
+    if target_parent_id and target_parent_id != 'null':
+        target_parent = get_object_or_404(CloudFile, id=target_parent_id, user=request.user, is_folder=True)
+        
+    items = CloudFile.objects.filter(id__in=item_ids, user=request.user)
+    
+    def is_descendant(folder, target):
+        curr = target
+        while curr:
+            if curr.id == folder.id:
+                return True
+            curr = curr.parent
+        return False
+        
+    for item in items:
+        if item.is_folder and target_parent and is_descendant(item, target_parent):
+            return Response({"error": f"Cannot copy '{item.name}' into its own subfolder."}, status=400)
+
+    def duplicate_item(item, parent):
+        new_item = CloudFile.objects.get(id=item.id)
+        new_item.pk = None
+        new_item.parent = parent
+        new_item.share_token = None
+        
+        if parent == item.parent:
+            new_item.name = f"{item.name} - Copy"
+            
+        if not item.is_folder and item.file:
+            from django.core.files import File
+            try:
+                with open(item.file.path, 'rb') as f:
+                    new_item.file.save(new_item.name, File(f), save=False)
+            except Exception:
+                pass
+        else:
+            new_item.file = None
+            
+        new_item.save()
+        
+        if item.is_folder:
+            from django.conf import settings
+            path_parts = [new_item.name]
+            curr = parent
+            while curr:
+                path_parts.insert(0, curr.name)
+                curr = curr.parent
+            full_path = os.path.join(settings.MEDIA_ROOT, f'user_{request.user.username}', *path_parts)
+            os.makedirs(full_path, exist_ok=True)
+            
+            for child in item.children.filter(is_trashed=False):
+                duplicate_item(child, new_item)
+                
+    for item in items:
+        duplicate_item(item, target_parent)
+        
+    return Response({"message": "Items copied successfully"})
+
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def empty_trash(request):
