@@ -582,14 +582,14 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
       >
         {/* Selection Action Bar */}
         {selectedItems.size > 0 && (
-          <div className="bg-primary text-primary-foreground px-6 py-3 rounded-2xl flex items-center justify-between mb-6 shadow-lg animate-in slide-in-from-top-2">
-            <span className="font-medium">{selectedItems.size} document(s) selected</span>
+          <div className="bg-white/10 backdrop-blur-2xl border border-white/20 text-white px-8 py-4 rounded-2xl flex items-center justify-between mb-8 shadow-[0_10px_40px_rgba(0,0,0,0.3)] animate-in slide-in-from-top-2 relative z-20">
+            <span className="font-light tracking-wider text-lg">{selectedItems.size} document(s) selected</span>
             {activeSection === "Trash" ? (
-              <div className="flex items-center gap-4 text-sm font-medium">
+              <div className="flex items-center gap-6 text-sm font-semibold tracking-widest uppercase">
                 <button onClick={async () => {
                   for (const idStr of selectedItems) await api.moveToTrash(idStr.replace(/file-|folder-/, ''), false);
                   setSelectedItems(new Set()); loadItems(true); window.dispatchEvent(new Event("storageUpdated"));
-                }} className="hover:underline">Restore</button>
+                }} className="hover:text-white/70 transition-colors">Restore</button>
                 <button onClick={async () => {
                   setConfirmAction({
                     isOpen: true, title: "Delete Forever?", confirmText: "Delete Forever",
@@ -599,13 +599,13 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                       setSelectedItems(new Set()); await loadItems(true); window.dispatchEvent(new Event("storageUpdated"));
                     }
                   });
-                }} className="hover:underline text-red-200">Delete Permanently</button>
+                }} className="text-red-400 hover:text-red-300 transition-colors">Delete Permanently</button>
               </div>
             ) : (
-              <div className="flex items-center gap-4 text-sm font-medium">
-                <button onClick={() => openFolderPicker("move")} className="hover:underline">Move</button>
-                <button onClick={() => openFolderPicker("copy")} className="hover:underline">Copy</button>
-                <button onClick={handleDeleteSelected} className="hover:underline text-red-200">Move to Trash</button>
+              <div className="flex items-center gap-6 text-sm font-semibold tracking-widest uppercase">
+                <button onClick={() => openFolderPicker("move")} className="hover:text-white/70 transition-colors">Move</button>
+                <button onClick={() => openFolderPicker("copy")} className="hover:text-white/70 transition-colors">Copy</button>
+                <button onClick={handleDeleteSelected} className="text-red-400 hover:text-red-300 transition-colors">Move to Trash</button>
               </div>
             )}
           </div>
@@ -773,15 +773,15 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
 
       {/* Create Folder Modal */}
       {isCreateFolderOpen && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center animate-in fade-in">
-          <div className="bg-card border border-border shadow-2xl rounded-2xl w-full max-w-md p-6 animate-in zoom-in-95">
-            <h3 className="text-lg font-semibold mb-4">Create New Folder</h3>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[120] flex items-center justify-center animate-in fade-in">
+          <div className="bg-white/10 backdrop-blur-2xl border border-white/20 shadow-[0_0_40px_rgba(0,0,0,0.5)] rounded-3xl w-full max-w-md p-8 animate-in zoom-in-95 text-white">
+            <h3 className="text-2xl font-light tracking-wide mb-6">Create New Folder</h3>
             <input 
               type="text" 
               autoFocus
               value={newFolderName}
               onChange={(e) => setNewFolderName(e.target.value)}
-              className="w-full bg-secondary/50 border border-border rounded-xl px-4 py-3 text-sm focus:bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all mb-6"
+              className="w-full bg-white/5 border border-white/20 rounded-xl px-4 py-3 text-sm focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/50 transition-all mb-8 text-white placeholder:text-white/40"
               placeholder="Folder name"
               onKeyDown={async (e) => {
                 if (e.key === 'Enter' && newFolderName.trim()) {
@@ -806,10 +806,10 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                 }
               }}
             />
-            <div className="flex justify-end gap-3">
+            <div className="flex justify-end gap-4">
               <button 
                 onClick={() => setIsCreateFolderOpen(false)}
-                className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                className="px-5 py-2.5 text-sm font-semibold tracking-widest uppercase text-white/60 hover:text-white transition-colors"
               >
                 Cancel
               </button>
@@ -835,7 +835,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                     } finally { await loadItems(true); }
                   }
                 }}
-                className="cozy-button text-primary-foreground px-5 py-2 rounded-xl text-sm font-medium"
+                className="px-6 py-2.5 bg-white text-slate-900 hover:bg-white/90 rounded-xl text-xs font-bold tracking-widest uppercase transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)]"
               >
                 Create
               </button>
@@ -846,22 +846,22 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
 
       {/* Universal Confirmation Modal */}
       {confirmAction && confirmAction.isOpen && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center animate-in fade-in">
-          <div className="bg-card border border-border shadow-2xl rounded-2xl w-full max-w-md p-6 animate-in zoom-in-95">
-            <h3 className="text-lg font-semibold mb-2">{confirmAction.title}</h3>
-            <p className="text-sm text-muted-foreground mb-6">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[120] flex items-center justify-center animate-in fade-in">
+          <div className="bg-white/10 backdrop-blur-2xl border border-white/20 shadow-[0_0_40px_rgba(0,0,0,0.5)] rounded-3xl w-full max-w-md p-8 animate-in zoom-in-95 text-white">
+            <h3 className="text-2xl font-light tracking-wide mb-4">{confirmAction.title}</h3>
+            <p className="text-sm text-white/70 mb-8 leading-relaxed">
               {confirmAction.message}
             </p>
-            <div className="flex justify-end gap-3">
+            <div className="flex justify-end gap-4">
               <button 
                 onClick={() => setConfirmAction(null)}
-                className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                className="px-5 py-2.5 text-sm font-semibold tracking-widest uppercase text-white/60 hover:text-white transition-colors"
               >
                 Cancel
               </button>
               <button 
                 onClick={executeConfirmAction}
-                className="bg-destructive hover:bg-destructive/90 text-destructive-foreground px-5 py-2 rounded-xl text-sm font-medium transition-colors shadow-sm"
+                className="px-6 py-2.5 bg-red-500 text-white hover:bg-red-400 rounded-xl text-xs font-bold tracking-widest uppercase transition-all shadow-[0_0_20px_rgba(239,68,68,0.2)] hover:shadow-[0_0_30px_rgba(239,68,68,0.4)]"
               >
                 {confirmAction.confirmText}
               </button>
@@ -872,38 +872,38 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
 
       {/* Upload Progress Tab */}
       {uploads.length > 0 && (
-        <div className="fixed bottom-6 right-6 w-80 bg-card border border-border shadow-2xl rounded-xl overflow-hidden z-50 animate-in slide-in-from-bottom-5 max-h-96 flex flex-col">
-          <div className="bg-secondary/50 px-4 py-3 border-b border-border flex justify-between items-center text-sm font-medium text-foreground">
+        <div className="fixed bottom-6 right-6 w-80 bg-white/10 backdrop-blur-2xl border border-white/20 shadow-[0_0_40px_rgba(0,0,0,0.3)] rounded-2xl overflow-hidden z-50 animate-in slide-in-from-bottom-5 max-h-96 flex flex-col text-white">
+          <div className="bg-black/40 px-5 py-4 border-b border-white/10 flex justify-between items-center text-xs font-semibold tracking-widest uppercase">
             Uploading {uploads.length} item(s)
           </div>
-          <div className="overflow-y-auto max-h-80 custom-scrollbar">
+          <div className="overflow-y-auto max-h-80 custom-scrollbar bg-black/20">
             {uploads.map((upload) => (
-              <div key={upload.id} className="p-3 border-b border-border/50 last:border-0">
+              <div key={upload.id} className="p-4 border-b border-white/10 last:border-0">
                 <div className="flex items-center gap-3 w-full">
                   {upload.complete ? (
-                    <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
+                    <CheckCircle2 className="w-5 h-5 text-green-400 shrink-0" />
                   ) : upload.error ? (
-                    <div className="w-5 h-5 bg-destructive rounded-full shrink-0" />
+                    <div className="w-5 h-5 bg-red-500 rounded-full shrink-0" />
                   ) : (
-                    <Loader2 className="w-5 h-5 animate-spin text-primary shrink-0" />
+                    <Loader2 className="w-5 h-5 animate-spin text-white shrink-0" />
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium truncate text-foreground">
+                    <p className="text-sm font-light tracking-wide truncate">
                       {upload.filename}
                     </p>
                     {!upload.complete && !upload.error && (
-                      <p className="text-xs text-muted-foreground mt-0.5">
+                      <p className="text-xs text-white/50 mt-1 font-mono">
                         {upload.progress}%
                       </p>
                     )}
                     {upload.error && (
-                      <p className="text-xs text-destructive mt-0.5">Upload failed</p>
+                      <p className="text-xs text-red-400 mt-1">Upload failed</p>
                     )}
                   </div>
                 </div>
                 {!upload.complete && !upload.error && (
-                  <div className="h-1.5 w-full bg-secondary mt-2 rounded-full overflow-hidden">
-                    <div className="h-full bg-primary transition-all duration-300" style={{ width: `${upload.progress}%` }} />
+                  <div className="h-1 w-full bg-white/10 mt-3 rounded-full overflow-hidden">
+                    <div className="h-full bg-white transition-all duration-300" style={{ width: `${upload.progress}%` }} />
                   </div>
                 )}
               </div>
@@ -994,24 +994,24 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
 
         {/* Share Link Modal */}
         {shareModal && shareModal.isOpen && (
-          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[110] flex items-center justify-center animate-in fade-in">
-            <div className="bg-card border border-border shadow-2xl rounded-2xl w-full max-w-md p-6 animate-in zoom-in-95">
-              <h3 className="text-lg font-semibold mb-2">Share Link Generated</h3>
-              <p className="text-sm text-muted-foreground mb-4">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[120] flex items-center justify-center animate-in fade-in">
+            <div className="bg-white/10 backdrop-blur-2xl border border-white/20 shadow-[0_0_40px_rgba(0,0,0,0.5)] rounded-3xl w-full max-w-md p-8 animate-in zoom-in-95 text-white">
+              <h3 className="text-2xl font-light tracking-wide mb-3">Share Link Generated</h3>
+              <p className="text-sm text-white/60 mb-6">
                 Anyone with this link can view and download this item.
               </p>
-              <div className="flex items-center gap-2 mb-6">
+              <div className="flex items-center gap-2 mb-8">
                 <input
                   type="text"
                   readOnly
                   value={shareModal.url}
-                  className="w-full bg-secondary/50 border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground"
+                  className="w-full bg-white/5 border border-white/20 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-white/50 text-white"
                 />
               </div>
-              <div className="flex justify-end gap-3">
+              <div className="flex justify-end gap-4">
                 <button
                   onClick={() => setShareModal(null)}
-                  className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  className="px-5 py-2.5 text-sm font-semibold tracking-widest uppercase text-white/60 hover:text-white transition-colors"
                 >
                   Close
                 </button>
@@ -1034,7 +1034,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                       alert("Failed to copy. Please select the link and copy manually.");
                     }
                   }}
-                  className="cozy-button text-primary-foreground px-5 py-2 rounded-xl text-sm font-medium min-w-[100px]"
+                  className="px-6 py-2.5 bg-white text-slate-900 hover:bg-white/90 rounded-xl text-xs font-bold tracking-widest uppercase transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] min-w-[100px]"
                 >
                   {isCopied ? "Copied!" : "Copy"}
                 </button>
@@ -1045,23 +1045,23 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
 
       {/* Folder Picker Modal (Move/Copy) */}
       {folderPicker && folderPicker.isOpen && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[120] flex items-center justify-center animate-in fade-in">
-          <div className="bg-card border border-border shadow-2xl rounded-2xl w-full max-w-md flex flex-col animate-in zoom-in-95 h-[500px]">
-            <div className="p-6 border-b border-border">
-              <h3 className="text-lg font-semibold capitalize">{folderPicker.action} {selectedItems.size} item(s)</h3>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2 overflow-x-auto whitespace-nowrap custom-scrollbar pb-1">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[120] flex items-center justify-center animate-in fade-in">
+          <div className="bg-white/10 backdrop-blur-2xl border border-white/20 shadow-[0_0_40px_rgba(0,0,0,0.5)] rounded-3xl w-full max-w-md flex flex-col animate-in zoom-in-95 h-[500px] overflow-hidden text-white">
+            <div className="p-6 border-b border-white/10 bg-white/5">
+              <h3 className="text-xl font-light tracking-wide capitalize">{folderPicker.action} {selectedItems.size} item(s)</h3>
+              <div className="flex items-center gap-2 text-sm text-white/60 mt-3 overflow-x-auto whitespace-nowrap custom-scrollbar pb-1">
                 <button 
                   onClick={() => setFolderPicker(prev => prev ? {...prev, currentFolderId: null, navStack: []} : null)}
-                  className="hover:text-foreground hover:underline transition-colors shrink-0"
+                  className="hover:text-white hover:underline transition-colors shrink-0"
                 >
                   My Drive
                 </button>
                 {folderPicker.navStack.map((nav, idx) => (
                   <div key={nav.id} className="flex items-center gap-2 shrink-0">
-                    <ChevronRight className="w-4 h-4" />
+                    <ChevronRight className="w-4 h-4 text-white/40" />
                     <button 
                       onClick={() => setFolderPicker(prev => prev ? {...prev, currentFolderId: nav.id, navStack: prev.navStack.slice(0, idx + 1)} : null)}
-                      className="hover:text-foreground hover:underline transition-colors max-w-[120px] truncate"
+                      className="hover:text-white hover:underline transition-colors max-w-[120px] truncate"
                     >
                       {nav.name}
                     </button>
@@ -1070,13 +1070,13 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
               </div>
             </div>
             
-            <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-black/20">
               {isPickerLoading ? (
                 <div className="flex justify-center py-8">
-                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  <Loader2 className="w-6 h-6 animate-spin text-white/60" />
                 </div>
               ) : pickerFolders.length === 0 ? (
-                <div className="text-center text-muted-foreground py-8 text-sm">
+                <div className="text-center text-white/40 py-8 text-sm italic">
                   This folder is empty
                 </div>
               ) : (
@@ -1089,29 +1089,29 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                         currentFolderId: folder.id,
                         navStack: [...prev.navStack, { id: folder.id, name: folder.name }]
                       } : null)}
-                      className="w-full flex items-center gap-3 p-3 hover:bg-secondary rounded-xl transition-colors text-left group"
+                      className="w-full flex items-center gap-3 p-3 hover:bg-white/10 rounded-xl transition-colors text-left group"
                     >
-                      <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-500 shrink-0">
+                      <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center text-white shrink-0 border border-white/10">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M19.5 21a3 3 0 003-3v-4.5a3 3 0 00-3-3h-15a3 3 0 00-3 3V18a3 3 0 003 3h15zM1.5 10.146V6a3 3 0 013-3h5.379a2.25 2.25 0 011.59.659l2.122 2.121c.14.141.331.22.53.22H19.5a3 3 0 013 3v1.146A4.483 4.483 0 0019.5 9h-15a4.483 4.483 0 00-3 1.146z" /></svg>
                       </div>
-                      <span className="font-medium text-foreground truncate flex-1">{folder.name}</span>
-                      <ChevronRight className="w-5 h-5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <span className="font-light tracking-wide text-white truncate flex-1">{folder.name}</span>
+                      <ChevronRight className="w-5 h-5 text-white/30 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </button>
                   ))}
                 </div>
               )}
             </div>
             
-            <div className="p-4 border-t border-border flex justify-end gap-3 bg-secondary/20 rounded-b-2xl">
+            <div className="p-5 border-t border-white/10 flex justify-end gap-4 bg-white/5">
               <button 
                 onClick={() => setFolderPicker(null)}
-                className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                className="px-5 py-2.5 text-sm font-semibold tracking-widest uppercase text-white/60 hover:text-white transition-colors"
               >
                 Cancel
               </button>
               <button 
                 onClick={handleActionConfirm}
-                className="cozy-button text-primary-foreground px-6 py-2 rounded-xl text-sm font-medium capitalize"
+                className="px-6 py-2.5 bg-white text-slate-900 hover:bg-white/90 rounded-xl text-xs font-bold tracking-widest uppercase transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)]"
               >
                 {folderPicker.action} Here
               </button>

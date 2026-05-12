@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useParams } from "next/navigation"
 import { Download, File, Folder, Loader2 } from "lucide-react"
 
 interface SharedItem {
@@ -21,16 +22,19 @@ const formatBytes = (bytes: number) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i]
 }
 
-export default function SharedPage({ params }: { params: { token: string } }) {
+export default function SharedPage() {
+  const params = useParams()
+  const token = params?.token as string
   const [item, setItem] = useState<SharedItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 
   useEffect(() => {
+    if (!token) return;
     const fetchSharedItem = async () => {
       try {
         const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api"
-        const res = await fetch(`${baseUrl}/shared/${params.token}/`)
+        const res = await fetch(`${baseUrl}/shared/${token}/`)
         if (!res.ok) throw new Error("This share link is invalid or has expired.")
         const data = await res.json()
         setItem(data)
@@ -41,7 +45,7 @@ export default function SharedPage({ params }: { params: { token: string } }) {
       }
     }
     fetchSharedItem()
-  }, [params.token])
+  }, [token])
 
   const handleDownload = (id: string) => {
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api"
@@ -74,7 +78,7 @@ export default function SharedPage({ params }: { params: { token: string } }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 p-6 md:p-12 flex justify-center items-start pt-20 relative text-white font-sans">
+    <div className="min-h-screen bg-slate-950 p-6 md:p-12 flex justify-center items-start pt-20 relative text-white font-serif">
       {/* Background Image & Overlay */}
       <div className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat fixed" style={{ backgroundImage: `url('/login-bg.png')` }} />
       <div className="absolute inset-0 z-0 bg-gradient-to-b from-black/60 via-black/70 to-black/90 fixed" />
