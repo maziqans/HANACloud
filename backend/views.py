@@ -71,24 +71,27 @@ def storage_summary(request):
 def drive_items(request):
     parent_id = request.GET.get('parent_id')
     if parent_id and parent_id != 'null':
-        files = CloudFile.objects.filter(user=request.user, parent_id=parent_id, is_trashed=False).order_by('-updated_at')
+        files_qs = CloudFile.objects.filter(user=request.user, parent_id=parent_id, is_trashed=False)
     else:
-        files = CloudFile.objects.filter(user=request.user, parent__isnull=True, is_trashed=False).order_by('-updated_at')
+        files_qs = CloudFile.objects.filter(user=request.user, parent__isnull=True, is_trashed=False)
     
-    files = files.annotate(
+    files_qs = files_qs.annotate(
         item_count_agg=Count('children', filter=Q(children__is_trashed=False))
+    ).order_by('-is_folder', '-updated_at').values(
+        'id', 'name', 'is_folder', 'file_size', 'updated_at', 'item_count_agg', 'is_starred'
     )
     
     data = []
-    for f in files:
+    for f in files_qs:
+        name = f['name']
         data.append({
-            "id": str(f.id),
-            "name": f.name.split('/')[-1] if '/' in f.name else f.name,
-            "item_type": "FOLDER" if f.is_folder else "FILE",
-            "size_bytes": f.file_size,
-            "updated_at": f.updated_at.isoformat(),
-            "item_count": f.item_count_agg if f.is_folder else 0,
-            "is_starred": f.is_starred
+            "id": str(f['id']),
+            "name": name.split('/')[-1] if '/' in name else name,
+            "item_type": "FOLDER" if f['is_folder'] else "FILE",
+            "size_bytes": f['file_size'],
+            "updated_at": f['updated_at'].isoformat() if f['updated_at'] else None,
+            "item_count": f['item_count_agg'] if f['is_folder'] else 0,
+            "is_starred": f['is_starred']
         })
     return Response(data)
 
@@ -170,57 +173,66 @@ def move_to_trash(request, item_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def trash_items(request):
-    files = CloudFile.objects.filter(user=request.user, is_trashed=True).annotate(
+    files_qs = CloudFile.objects.filter(user=request.user, is_trashed=True).annotate(
         item_count_agg=Count('children', filter=Q(children__is_trashed=True))
-    ).order_by('-updated_at')
+    ).order_by('-is_folder', '-updated_at').values(
+        'id', 'name', 'is_folder', 'file_size', 'updated_at', 'item_count_agg', 'is_starred'
+    )
     
     data = []
-    for f in files:
+    for f in files_qs:
+        name = f['name']
         data.append({
-            "id": str(f.id),
-            "name": f.name.split('/')[-1] if '/' in f.name else f.name,
-            "item_type": "FOLDER" if f.is_folder else "FILE",
-            "size_bytes": f.file_size,
-            "updated_at": f.updated_at.isoformat(),
-            "item_count": f.item_count_agg if f.is_folder else 0,
-            "is_starred": f.is_starred
+            "id": str(f['id']),
+            "name": name.split('/')[-1] if '/' in name else name,
+            "item_type": "FOLDER" if f['is_folder'] else "FILE",
+            "size_bytes": f['file_size'],
+            "updated_at": f['updated_at'].isoformat() if f['updated_at'] else None,
+            "item_count": f['item_count_agg'] if f['is_folder'] else 0,
+            "is_starred": f['is_starred']
         })
     return Response(data)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def recent_items(request):
-    files = CloudFile.objects.filter(user=request.user, is_trashed=False, is_folder=False, last_viewed_at__isnull=False).order_by('-last_viewed_at')[:20]
+    files_qs = CloudFile.objects.filter(user=request.user, is_trashed=False, is_folder=False, last_viewed_at__isnull=False).order_by('-last_viewed_at')[:20]
+    files_qs = files_qs.values('id', 'name', 'file_size', 'updated_at', 'is_starred')
+    
     data = []
-    for f in files:
+    for f in files_qs:
+        name = f['name']
         data.append({
-            "id": str(f.id),
-            "name": f.name.split('/')[-1] if '/' in f.name else f.name,
+            "id": str(f['id']),
+            "name": name.split('/')[-1] if '/' in name else name,
             "item_type": "FILE",
-            "size_bytes": f.file_size,
-            "updated_at": f.updated_at.isoformat(),
+            "size_bytes": f['file_size'],
+            "updated_at": f['updated_at'].isoformat() if f['updated_at'] else None,
             "item_count": 0,
-            "is_starred": f.is_starred
+            "is_starred": f['is_starred']
         })
     return Response(data)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def starred_items(request):
-    files = CloudFile.objects.filter(user=request.user, is_trashed=False, is_starred=True).annotate(
+    files_qs = CloudFile.objects.filter(user=request.user, is_trashed=False, is_starred=True).annotate(
         item_count_agg=Count('children', filter=Q(children__is_trashed=False))
-    ).order_by('-updated_at')
+    ).order_by('-is_folder', '-updated_at').values(
+        'id', 'name', 'is_folder', 'file_size', 'updated_at', 'item_count_agg', 'is_starred'
+    )
     
     data = []
-    for f in files:
+    for f in files_qs:
+        name = f['name']
         data.append({
-            "id": str(f.id),
-            "name": f.name.split('/')[-1] if '/' in f.name else f.name,
-            "item_type": "FOLDER" if f.is_folder else "FILE",
-            "size_bytes": f.file_size,
-            "updated_at": f.updated_at.isoformat(),
-            "item_count": f.item_count_agg if f.is_folder else 0,
-            "is_starred": f.is_starred
+            "id": str(f['id']),
+            "name": name.split('/')[-1] if '/' in name else name,
+            "item_type": "FOLDER" if f['is_folder'] else "FILE",
+            "size_bytes": f['file_size'],
+            "updated_at": f['updated_at'].isoformat() if f['updated_at'] else None,
+            "item_count": f['item_count_agg'] if f['is_folder'] else 0,
+            "is_starred": f['is_starred']
         })
     return Response(data)
 

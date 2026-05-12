@@ -61,7 +61,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   const [currentItems, setCurrentItems] = useState<CloudItem[]>([])
-  const [uploadState, setUploadState] = useState<{ progress: number, total: number, complete: boolean, filename: string } | null>(null)
+  const [uploads, setUploads] = useState<{ id: string, filename: string, progress: number, complete: boolean, error?: string }[]>([])
   const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false)
   const [newFolderName, setNewFolderName] = useState("")
   const [currentParentId, setCurrentParentId] = useState<string | null>(null)
@@ -132,13 +132,14 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
     const formData = new FormData()
     const existingNames = currentItems.map((item) => item.name)
     const files = Array.from(e.target.files)
+    const filesToUpload: { file: File, finalName: string, path: string }[] = []
 
     for (const file of files) {
       let finalName = file.name
       let skip = false
 
       if (existingNames.includes(finalName)) {
-        if (window.confirm("This file already exists. Save as duplicate?")) {
+        if (window.confirm(`"${finalName}" already exists. Save as duplicate?`)) {
           finalName = getUniqueFilename(finalName, existingNames)
           existingNames.push(finalName)
         } else {
@@ -155,32 +156,53 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
         path = pathParts.join('/')
       }
 
-      formData.append("files", file, finalName)
-      formData.append("paths", path)
+      filesToUpload.push({ file, finalName, path })
     }
 
-    if (!formData.has("files")) {
+    if (filesToUpload.length === 0) {
       e.target.value = ''
       return
     }
 
-    const fileNames = files.map(f => f.name).join(", ")
-    setUploadState({ progress: 0, total: files.length, complete: false, filename: fileNames })
+    // Initialize all uploads in state
+    const newUploads = filesToUpload.map(f => ({
+      id: Math.random().toString(36).substring(7),
+      filename: f.finalName,
+      progress: 0,
+      complete: false,
+      file: f.file,
+      path: f.path
+    }))
 
-    try {
-      await api.uploadFiles(formData, currentParentId, (progressEvent) => {
-        const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
-        setUploadState(prev => prev ? { ...prev, progress: percentCompleted } : null)
-      })
-      await loadItems(true)
-      window.dispatchEvent(new Event("storageUpdated"))
-      setUploadState(prev => prev ? { ...prev, complete: true, progress: 100 } : null)
-      setTimeout(() => setUploadState(null), 4000)
-    } catch (error) {
-      console.error("Failed to upload files:", error)
-    } finally {
-      e.target.value = ''
+    setUploads(prev => [...prev, ...newUploads.map(u => ({ id: u.id, filename: u.filename, progress: 0, complete: false }))])
+
+    // Upload files sequentially one by one
+    for (const upload of newUploads) {
+      const formData = new FormData()
+      formData.append("files", upload.file, upload.filename)
+      formData.append("paths", upload.path)
+
+      try {
+        await api.uploadFiles(formData, currentParentId, (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
+          setUploads(prev => prev.map(u => u.id === upload.id ? { ...u, progress: percentCompleted } : u))
+        })
+        
+        setUploads(prev => prev.map(u => u.id === upload.id ? { ...u, complete: true, progress: 100 } : u))
+        await loadItems(true)
+        window.dispatchEvent(new Event("storageUpdated"))
+      } catch (error) {
+        console.error("Failed to upload file:", upload.filename, error)
+        setUploads(prev => prev.map(u => u.id === upload.id ? { ...u, error: "Failed" } : u))
+      }
+      
+      // Remove completed uploads from UI after 5 seconds
+      setTimeout(() => {
+        setUploads(prev => prev.filter(u => u.id !== upload.id))
+      }, 5000)
     }
+
+    e.target.value = ''
   }
 
   const folders = currentItems.filter((item) => item.item_type === "FOLDER")
@@ -591,32 +613,44 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
       )}
 
       {/* Upload Progress Tab */}
-      {uploadState && (
-        <div className="fixed bottom-6 right-6 w-80 bg-card border border-border shadow-2xl rounded-xl overflow-hidden z-50 animate-in slide-in-from-bottom-5">
-          <div className="bg-secondary/50 px-4 py-4 border-b border-border flex justify-between items-center">
-            <div className="flex items-center gap-3 w-full">
-              {uploadState.complete ? (
-                <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
-              ) : (
-                <Loader2 className="w-5 h-5 animate-spin text-primary shrink-0" />
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium truncate text-foreground">
-                  {uploadState.complete ? "Upload complete" : uploadState.filename}
-                </p>
-                {!uploadState.complete && (
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Uploading {uploadState.total} item(s) • {uploadState.progress}%
-                  </p>
+      {uploads.length > 0 && (
+        <div className="fixed bottom-6 right-6 w-80 bg-card border border-border shadow-2xl rounded-xl overflow-hidden z-50 animate-in slide-in-from-bottom-5 max-h-96 flex flex-col">
+          <div className="bg-secondary/50 px-4 py-3 border-b border-border flex justify-between items-center text-sm font-medium text-foreground">
+            Uploading {uploads.length} item(s)
+          </div>
+          <div className="overflow-y-auto max-h-80 custom-scrollbar">
+            {uploads.map((upload) => (
+              <div key={upload.id} className="p-3 border-b border-border/50 last:border-0">
+                <div className="flex items-center gap-3 w-full">
+                  {upload.complete ? (
+                    <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
+                  ) : upload.error ? (
+                    <div className="w-5 h-5 bg-destructive rounded-full shrink-0" />
+                  ) : (
+                    <Loader2 className="w-5 h-5 animate-spin text-primary shrink-0" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate text-foreground">
+                      {upload.filename}
+                    </p>
+                    {!upload.complete && !upload.error && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {upload.progress}%
+                      </p>
+                    )}
+                    {upload.error && (
+                      <p className="text-xs text-destructive mt-0.5">Upload failed</p>
+                    )}
+                  </div>
+                </div>
+                {!upload.complete && !upload.error && (
+                  <div className="h-1.5 w-full bg-secondary mt-2 rounded-full overflow-hidden">
+                    <div className="h-full bg-primary transition-all duration-300" style={{ width: `${upload.progress}%` }} />
+                  </div>
                 )}
               </div>
-            </div>
+            ))}
           </div>
-          {!uploadState.complete && (
-            <div className="h-1.5 w-full bg-secondary">
-               <div className="h-full bg-primary transition-all duration-300" style={{ width: `${uploadState.progress}%` }} />
-            </div>
-          )}
         </div>
       )}
     </main>
