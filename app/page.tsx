@@ -62,7 +62,7 @@ export default function HANACloudPage() {
     setUser(null);
   };
 
-  if (isChecking) return <div className="min-h-screen flex items-center justify-center bg-background text-muted-foreground animate-pulse">Loading...</div>;
+  if (isChecking) return <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white animate-pulse">Loading...</div>;
 
   if (!isAuthenticated) {
     return (
@@ -122,18 +122,62 @@ export default function HANACloudPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar 
-        activeItem={activeSection}
-        onNavigate={setActiveSection}
-        user={user}
-        onLogout={handleLogout}
-      />
-      {isSettings ? (
-        <SettingsContent user={user} onUpdate={fetchUser} activeSection={activeSection} />
-      ) : (
-        <MainContent user={user} activeSection={activeSection} />
-      )}
+    <div className="flex min-h-screen relative overflow-hidden font-sans text-white">
+      {/* Hotel Theme CSS Injection to Override Defaults */}
+      <style dangerouslySetInnerHTML={{__html: `
+        :root { color-scheme: dark; }
+        .bg-background { background-color: transparent !important; }
+        .bg-card { background-color: rgba(255, 255, 255, 0.03) !important; backdrop-filter: blur(16px) !important; border-color: rgba(255, 255, 255, 0.08) !important; color: white !important; }
+        .bg-card\\/50 { background-color: rgba(255, 255, 255, 0.02) !important; }
+        .bg-popover { background-color: rgba(0, 0, 0, 0.7) !important; backdrop-filter: blur(24px) !important; border-color: rgba(255, 255, 255, 0.1) !important; color: white !important; }
+        .bg-sidebar { background-color: rgba(0, 0, 0, 0.2) !important; backdrop-filter: blur(20px) !important; border-color: rgba(255, 255, 255, 0.05) !important; }
+        
+        .bg-secondary { background-color: rgba(255, 255, 255, 0.05) !important; color: white !important; }
+        .bg-secondary\\/50, .bg-secondary\\/30, .bg-secondary\\/20 { background-color: rgba(255, 255, 255, 0.03) !important; }
+        .hover\\:bg-secondary:hover, .hover\\:bg-secondary\\/50:hover { background-color: rgba(255, 255, 255, 0.1) !important; }
+        
+        .bg-primary { background-color: white !important; color: #0f172a !important; }
+        .hover\\:bg-primary\\/90:hover { background-color: rgba(255, 255, 255, 0.9) !important; }
+        .text-primary { color: white !important; }
+        .text-primary-foreground { color: #0f172a !important; }
+        
+        .border-border, .border-sidebar-border, .border-border\\/50, .border-border\\/40 { border-color: rgba(255, 255, 255, 0.1) !important; }
+        
+        .text-foreground, .text-sidebar-foreground { color: white !important; }
+        .text-muted-foreground { color: rgba(255, 255, 255, 0.6) !important; }
+        
+        .data-\\[active\\=true\\]\\:bg-sidebar-accent[data-active=true] { background-color: rgba(255, 255, 255, 0.1) !important; color: white !important; }
+        .hover\\:bg-sidebar-accent:hover { background-color: rgba(255, 255, 255, 0.1) !important; color: white !important; }
+        
+        input[type="text"], input[type="password"] { 
+          background-color: rgba(255, 255, 255, 0.05) !important; 
+          color: white !important; 
+          border-color: rgba(255, 255, 255, 0.1) !important; 
+        }
+        input[type="text"]:focus, input[type="password"]:focus { 
+          border-color: white !important; 
+          outline: none !important; 
+          box-shadow: 0 0 0 1px rgba(255,255,255,0.3) !important; 
+        }
+        input::placeholder { color: rgba(255, 255, 255, 0.4) !important; }
+        
+        .cozy-button { background-color: white !important; color: #0f172a !important; box-shadow: 0 0 15px rgba(255,255,255,0.1) !important; text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.75rem !important; }
+        .cozy-button:hover { box-shadow: 0 0 25px rgba(255,255,255,0.2) !important; background-color: rgba(255,255,255,0.9) !important; }
+        
+        .bg-primary\\/10 { background-color: rgba(255, 255, 255, 0.1) !important; border-color: rgba(255, 255, 255, 0.4) !important; }
+      `}} />
+
+      {/* Background Image & Overlay */}
+      <div className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat fixed" style={{ backgroundImage: `url('/login-bg.png')` }} />
+      <div className="absolute inset-0 z-0 bg-gradient-to-b from-black/60 via-black/70 to-black/90 fixed" />
+
+      {/* Main UI Content Container */}
+      <div className="relative z-10 flex w-full h-screen">
+        <Sidebar activeItem={activeSection} onNavigate={setActiveSection} user={user} onLogout={handleLogout} />
+        <div className="flex-1 flex flex-col overflow-hidden bg-white/5 backdrop-blur-3xl border-l border-white/10 shadow-2xl">
+          {isSettings ? <SettingsContent user={user} onUpdate={fetchUser} activeSection={activeSection} /> : <MainContent user={user} activeSection={activeSection} />}
+        </div>
+      </div>
     </div>
   )
 }

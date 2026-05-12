@@ -50,8 +50,10 @@ export default function SharedPage({ params }: { params: { token: string } }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center text-muted-foreground">
-        <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white/60 relative">
+        <div className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat fixed" style={{ backgroundImage: `url('/login-bg.png')` }} />
+        <div className="absolute inset-0 z-0 bg-gradient-to-b from-black/60 via-black/70 to-black/90 fixed" />
+        <Loader2 className="w-10 h-10 animate-spin text-white mb-4 relative z-10" />
         <p>Loading shared secure file...</p>
       </div>
     )
@@ -59,30 +61,36 @@ export default function SharedPage({ params }: { params: { token: string } }) {
 
   if (error || !item) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center text-center px-6">
-        <div className="w-20 h-20 bg-destructive/10 text-destructive rounded-full flex items-center justify-center mb-6">
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-center px-6 relative text-white">
+        <div className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat fixed" style={{ backgroundImage: `url('/login-bg.png')` }} />
+        <div className="absolute inset-0 z-0 bg-gradient-to-b from-black/60 via-black/70 to-black/90 fixed" />
+        <div className="relative z-10 w-20 h-20 bg-red-500/20 text-red-400 border border-red-500/30 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(239,68,68,0.2)]">
           <File className="w-10 h-10" />
         </div>
-        <h1 className="text-2xl font-semibold mb-2">Item Not Found</h1>
-        <p className="text-muted-foreground">{error}</p>
+        <h1 className="relative z-10 text-3xl font-light tracking-wide mb-2">Item Not Found</h1>
+        <p className="relative z-10 text-white/60">{error}</p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-background p-6 md:p-12 flex justify-center items-start pt-20">
-      <div className="w-full max-w-4xl bg-card border border-border shadow-2xl rounded-3xl overflow-hidden animate-in slide-in-from-bottom-5">
-        <div className="p-8 md:p-12 border-b border-border bg-secondary/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+    <div className="min-h-screen bg-slate-950 p-6 md:p-12 flex justify-center items-start pt-20 relative text-white font-sans">
+      {/* Background Image & Overlay */}
+      <div className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat fixed" style={{ backgroundImage: `url('/login-bg.png')` }} />
+      <div className="absolute inset-0 z-0 bg-gradient-to-b from-black/60 via-black/70 to-black/90 fixed" />
+
+      <div className="relative z-10 w-full max-w-4xl bg-white/5 backdrop-blur-2xl border border-white/10 shadow-2xl rounded-3xl overflow-hidden animate-in slide-in-from-bottom-5">
+        <div className="p-8 md:p-12 border-b border-white/10 bg-white/5 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div>
             <div className="flex items-center gap-3 mb-2">
-              {item.item_type === "FOLDER" ? <Folder className="w-8 h-8 text-blue-500 fill-blue-500/20" /> : <File className="w-8 h-8 text-primary fill-primary/20" />}
-              <h1 className="text-3xl font-semibold text-foreground truncate max-w-lg">{item.name}</h1>
+              {item.item_type === "FOLDER" ? <Folder className="w-8 h-8 text-white fill-white/20" /> : <File className="w-8 h-8 text-white fill-white/20" />}
+              <h1 className="text-3xl font-light tracking-wide text-white truncate max-w-lg">{item.name}</h1>
             </div>
-            <p className="text-muted-foreground">Shared securely by <span className="font-medium text-foreground">{item.owner}</span> • {item.item_type === "FOLDER" ? `${item.children?.length} items` : formatBytes(item.size_bytes)}</p>
+            <p className="text-white/60">Shared securely by <span className="font-medium text-white">{item.owner}</span> • {item.item_type === "FOLDER" ? `${item.children?.length} items` : formatBytes(item.size_bytes)}</p>
           </div>
           
           {item.item_type === "FILE" && (
-            <button onClick={() => handleDownload(item.id)} className="px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl font-medium transition-colors shadow-lg flex items-center gap-2 w-full md:w-auto justify-center">
+            <button onClick={() => handleDownload(item.id)} className="px-8 py-3.5 bg-white hover:bg-white/90 text-slate-900 rounded-xl font-semibold uppercase tracking-widest text-xs transition-colors shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] flex items-center gap-3 w-full md:w-auto justify-center">
               <Download className="w-5 h-5" /> Download File
             </button>
           )}
@@ -90,18 +98,18 @@ export default function SharedPage({ params }: { params: { token: string } }) {
 
         {item.item_type === "FOLDER" && item.children && (
           <div className="p-6 md:p-8">
-            <h3 className="text-sm font-medium text-muted-foreground mb-4 px-2">Folder Contents</h3>
+            <h3 className="text-xs uppercase tracking-widest font-semibold text-white/50 mb-6 px-2">Folder Contents</h3>
             <div className="space-y-2">
               {item.children.length === 0 ? (
-                <p className="text-center text-muted-foreground py-10">This folder is empty.</p>
+                <p className="text-center text-white/40 py-10 italic">This folder is empty.</p>
               ) : (
                 item.children.map((child) => (
-                  <div key={child.id} className="flex items-center justify-between p-4 hover:bg-secondary/50 rounded-2xl transition-colors border border-transparent hover:border-border group">
+                  <div key={child.id} className="flex items-center justify-between p-4 hover:bg-white/5 rounded-2xl transition-colors border border-transparent hover:border-white/10 group">
                     <div className="flex items-center gap-4">
-                      {child.item_type === "FOLDER" ? <Folder className="w-6 h-6 text-blue-500" /> : <File className="w-6 h-6 text-muted-foreground" />}
-                      <span className="font-medium text-foreground">{child.name}</span>
+                      {child.item_type === "FOLDER" ? <Folder className="w-6 h-6 text-white" /> : <File className="w-6 h-6 text-white/60" />}
+                      <span className="font-light tracking-wide text-white">{child.name}</span>
                     </div>
-                    <button onClick={() => handleDownload(child.id)} className="p-2 bg-background border border-border rounded-lg text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-all shadow-sm">
+                    <button onClick={() => handleDownload(child.id)} className="p-2 bg-white/10 border border-white/20 rounded-lg text-white/80 hover:text-white hover:bg-white/20 opacity-0 group-hover:opacity-100 transition-all shadow-sm">
                       <Download className="w-4 h-4" />
                     </button>
                   </div>
