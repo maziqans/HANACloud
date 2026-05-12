@@ -7,7 +7,7 @@ import { ViewToggle } from "./view-toggle"
 import { FolderCard } from "./folder-card"
 import { FileCard } from "./file-card"
 import { FileRow } from "./file-row"
-import { Inbox, CheckCircle2, Loader2, MoreHorizontal, ChevronRight, Star, Upload } from "lucide-react"
+import { Inbox, CheckCircle2, Loader2, MoreHorizontal, ChevronRight, Star, Upload, X, Download } from "lucide-react"
 
 export interface CloudItem {
   id: string
@@ -73,6 +73,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
   const [selectionBox, setSelectionBox] = useState<{ startX: number, startY: number, endX: number, endY: number } | null>(null)
   const isSelecting = useRef(false)
   const prevSelectedRef = useRef<Set<string>>(new Set())
+  const [previewItem, setPreviewItem] = useState<CloudItem | null>(null)
   
   const [confirmAction, setConfirmAction] = useState<{
     isOpen: boolean;
@@ -335,6 +336,14 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
     document.body.removeChild(link)
   }
 
+  const getPreviewType = (name: string) => {
+    const ext = name.slice(name.lastIndexOf('.')).toLowerCase();
+    if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext)) return 'image';
+    if (['.mp4', '.webm', '.ogg'].includes(ext)) return 'video';
+    if (['.mp3', '.wav'].includes(ext)) return 'audio';
+    return null;
+  }
+
   const handleDoubleClick = (item: CloudItem) => {
     if (activeSection === "Trash") return;
     if (item.item_type === "FOLDER") {
@@ -342,7 +351,11 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
       setNavStack(prev => [...prev, { id: item.id, name: item.name }])
       setSelectedItems(new Set())
     } else {
-      handleDownload(item.id)
+      if (getPreviewType(item.name)) {
+        setPreviewItem(item);
+      } else {
+        handleDownload(item.id);
+      }
       setTimeout(() => loadItems(true), 500) // silently update recent tab sorting in background
     }
   }
@@ -836,6 +849,58 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
             height: Math.abs(selectionBox.endY - selectionBox.startY),
           }}
         />
+      )}
+
+      {/* File Preview Modal */}
+      {previewItem && (
+        <div className="fixed inset-0 bg-background/95 backdrop-blur-sm z-[100] flex items-center justify-center animate-in fade-in">
+          <div className="absolute top-6 right-6 flex items-center gap-4 z-50">
+            <button 
+              onClick={() => { handleDownload(previewItem.id); setPreviewItem(null); }}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-full text-sm font-medium hover:bg-primary/90 transition-colors flex items-center gap-2 shadow-lg"
+            >
+              <Download className="w-4 h-4" /> Download
+            </button>
+            <button 
+              onClick={() => setPreviewItem(null)}
+              className="p-2 bg-secondary/50 hover:bg-secondary rounded-full text-foreground transition-colors shadow-lg"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+          
+          <div className="w-full h-full max-w-6xl max-h-[85vh] p-8 flex flex-col items-center justify-center relative">
+            {getPreviewType(previewItem.name) === 'image' && (
+               <img 
+                 src={`${process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api"}/download/${previewItem.id}/`} 
+                 alt={previewItem.name} 
+                 className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+               />
+            )}
+            {getPreviewType(previewItem.name) === 'video' && (
+               <video 
+                 controls 
+                 autoPlay
+                 src={`${process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api"}/download/${previewItem.id}/`} 
+                 className="max-w-full max-h-full rounded-lg shadow-2xl bg-black"
+               />
+            )}
+            {getPreviewType(previewItem.name) === 'audio' && (
+               <div className="bg-card p-10 rounded-3xl shadow-2xl flex flex-col items-center gap-8 w-full max-w-md border border-border">
+                 <div className="w-32 h-32 bg-primary/10 rounded-full flex items-center justify-center animate-pulse">
+                    <div className="w-16 h-16 bg-primary rounded-full" />
+                 </div>
+                 <h3 className="text-xl font-medium text-foreground text-center truncate w-full px-4">{previewItem.name}</h3>
+                 <audio 
+                   controls 
+                   autoPlay
+                   src={`${process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api"}/download/${previewItem.id}/`} 
+                   className="w-full"
+                 />
+               </div>
+            )}
+          </div>
+        </div>
       )}
     </main>
   )

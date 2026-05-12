@@ -199,7 +199,7 @@ def download_file(request, file_id):
     cloud_file.save(update_fields=['last_viewed_at'])
     
     ext = os.path.splitext(cloud_file.name)[1].lower()
-    inline_exts = ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.webp', '.txt']
+    inline_exts = ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.webp', '.txt', '.mp4', '.webm', '.ogg', '.mp3', '.wav']
     as_attachment = ext not in inline_exts
     return FileResponse(cloud_file.file.open('rb'), as_attachment=as_attachment, filename=cloud_file.name)
 
