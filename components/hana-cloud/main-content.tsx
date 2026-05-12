@@ -360,6 +360,29 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
     }
   }
 
+  const handleShare = async (id: string) => {
+    try {
+      // Direct fetch is used here to avoid needing to manually edit api.ts context
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api";
+      const token = localStorage.getItem("access_token") || localStorage.getItem("token") || "";
+      
+      const res = await fetch(`${baseUrl}/share/${id}/`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" }
+      });
+      if (!res.ok) throw new Error("Failed to share item");
+      const data = await res.json();
+      
+      // Dynamically constructs using the active domain (IP or cloud.hanacasa.my)
+      const shareUrl = `${window.location.origin}/share/${data.share_token}`;
+      await navigator.clipboard.writeText(shareUrl);
+      alert(`Secure share link copied to clipboard!\n\n${shareUrl}`);
+    } catch (error) {
+      console.error(error);
+      alert("Failed to generate share link.");
+    }
+  }
+
   const navigateTo = (index: number) => {
     const newStack = navStack.slice(0, index + 1)
     setNavStack(newStack)
@@ -602,7 +625,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                         onDelete={() => requestDelete(folder.id, false)}
                         onRestore={async () => { await api.moveToTrash(folder.id, false); loadItems(true); window.dispatchEvent(new Event("storageUpdated")); }}
                         onPermanentDelete={() => requestDelete(folder.id, true)}
-                        onShare={() => alert("Share functionality coming soon!")}
+                        onShare={() => handleShare(folder.id)}
                         onDownload={() => alert("Downloading entire folders coming soon!")}
                       />
                       </div>
@@ -633,7 +656,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                         onToggleStar={() => toggleStar(file.id, !file.is_starred)}
                         isTrash={activeSection === "Trash"}
                         onDownload={() => handleDownload(file.id)}
-                        onShare={() => alert("Share functionality coming soon!")}
+                        onShare={() => handleShare(file.id)}
                         onDelete={() => requestDelete(file.id, false)}
                         onRestore={async () => { await api.moveToTrash(file.id, false); loadItems(true); window.dispatchEvent(new Event("storageUpdated")); }}
                         onPermanentDelete={() => requestDelete(file.id, true)}
@@ -666,7 +689,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                           onToggleStar={() => toggleStar(file.id, !file.is_starred)}
                           isTrash={activeSection === "Trash"}
                           onDownload={() => handleDownload(file.id)}
-                          onShare={() => alert("Share functionality coming soon!")}
+                          onShare={() => handleShare(file.id)}
                           onDelete={() => requestDelete(file.id, false)}
                           onRestore={async () => { await api.moveToTrash(file.id, false); loadItems(true); window.dispatchEvent(new Event("storageUpdated")); }}
                           onPermanentDelete={() => requestDelete(file.id, true)}

@@ -30,6 +30,8 @@ def create_or_update_user_profile(sender, instance, created, **kwargs):
     else:
         instance.userprofile.save()
 
+import uuid
+
 class CloudFile(models.Model):
     CATEGORY_CHOICES = [
         ('IMAGE', 'Image'),
@@ -50,6 +52,7 @@ class CloudFile(models.Model):
     category = models.CharField(max_length=10, choices=CATEGORY_CHOICES, default='OTHER', blank=True, null=True) # Allow null for folders
     updated_at = models.DateTimeField(auto_now=True) # Use auto_now for last modified
     last_viewed_at = models.DateTimeField(null=True, blank=True)
+    share_token = models.CharField(max_length=64, unique=True, null=True, blank=True)
 
     class Meta:
         indexes = [

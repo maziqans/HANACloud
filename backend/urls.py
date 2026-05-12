@@ -31,6 +31,10 @@ urlpatterns = [
     path('api/storage/summary/', views.storage_summary, name='storage_summary'),
     path('api/storage/request/', views.request_storage, name='request_storage'),
     path('api/account/', views.delete_account, name='delete_account'),
+
+    path('api/share/<str:item_id>/', views.share_item),
+    path('api/shared/<str:token>/', views.shared_item_info),
+
 ]
 
 if settings.DEBUG:

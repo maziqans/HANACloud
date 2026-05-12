@@ -190,6 +190,44 @@ def toggle_star(request, item_id):
     item.save(update_fields=['is_starred'])
     return Response({"message": f"Item {'starred' if is_starred else 'unstarred'}"})
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def share_item(request, item_id):
+    import uuid
+    item = get_object_or_404(CloudFile, id=item_id, user=request.user)
+    if not item.share_token:
+        item.share_token = uuid.uuid4().hex
+        item.save(update_fields=['share_token'])
+    return Response({"share_token": item.share_token})
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def shared_item_info(request, token):
+    item = get_object_or_404(CloudFile, share_token=token, is_trashed=False)
+    
+    data = {
+        "id": str(item.id),
+        "name": item.name.split('/')[-1] if '/' in item.name else item.name,
+        "item_type": "FOLDER" if item.is_folder else "FILE",
+        "size_bytes": item.file_size,
+        "updated_at": item.updated_at.isoformat() if item.updated_at else None,
+        "share_token": item.share_token,
+        "owner": item.user.first_name or item.user.username,
+    }
+    
+    if item.is_folder:
+        children = item.children.filter(is_trashed=False).order_by('-is_folder', 'name')
+        data["children"] = []
+        for c in children:
+            data["children"].append({
+                "id": str(c.id),
+                "name": c.name.split('/')[-1] if '/' in c.name else c.name,
+                "item_type": "FOLDER" if c.is_folder else "FILE",
+                "size_bytes": c.file_size,
+                "updated_at": c.updated_at.isoformat() if c.updated_at else None,
+            })
+    return Response(data)
+
 @api_view(['GET'])
 @permission_classes([AllowAny]) # Standard HTML anchor links won't pass JWT headers easily
 def download_file(request, file_id):
