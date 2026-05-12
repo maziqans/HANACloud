@@ -248,15 +248,36 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
 
     // Upload files sequentially one by one
     for (const upload of newUploads) {
-      const formData = new FormData()
-      formData.append("files", upload.file, upload.filename)
-      formData.append("paths", upload.path)
+      const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks to bypass ANY server/proxy limits
+      const totalChunks = Math.ceil(upload.file.size / CHUNK_SIZE);
 
       try {
-        await api.uploadFiles(formData, currentParentId, (progressEvent) => {
-          const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
-          setUploads(prev => prev.map(u => u.id === upload.id ? { ...u, progress: percentCompleted } : u))
-        })
+        if (totalChunks <= 1) {
+          const formData = new FormData()
+          formData.append("files", upload.file, upload.filename)
+          formData.append("paths", upload.path)
+          
+          await api.uploadFiles(formData, currentParentId, (progressEvent) => {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
+            setUploads(prev => prev.map(u => u.id === upload.id ? { ...u, progress: percentCompleted } : u))
+          })
+        } else {
+          for (let i = 0; i < totalChunks; i++) {
+            const chunk = upload.file.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+            const formData = new FormData();
+            formData.append("files", chunk, upload.filename);
+            formData.append("paths", upload.path);
+            formData.append("chunk_index", i.toString());
+            formData.append("total_chunks", totalChunks.toString());
+            formData.append("file_id", upload.id);
+            formData.append("filename", upload.filename);
+            
+            await api.uploadFiles(formData, currentParentId, () => {});
+            
+            const percentCompleted = Math.round(((i + 1) * 100) / totalChunks);
+            setUploads(prev => prev.map(u => u.id === upload.id ? { ...u, progress: percentCompleted } : u))
+          }
+        }
         
         setUploads(prev => prev.map(u => u.id === upload.id ? { ...u, complete: true, progress: 100 } : u))
         await loadItems(true)
@@ -387,7 +408,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
 
   return (
     <main 
-      className="flex-1 flex flex-col min-h-screen overflow-hidden bg-background animate-in fade-in duration-700 relative"
+      className="flex-1 flex flex-col h-svh overflow-hidden bg-background animate-in fade-in duration-700 relative"
       onDragOver={(e) => { e.preventDefault(); if (activeSection !== "Trash") setIsDragging(true); }}
     >
       <input type="file" multiple className="hidden" id="file-upload" onChange={handleUpload} />
@@ -662,9 +683,24 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
               placeholder="Folder name"
               onKeyDown={async (e) => {
                 if (e.key === 'Enter' && newFolderName.trim()) {
+                  const name = newFolderName.trim();
                   setIsCreateFolderOpen(false);
-                  await api.createFolder(newFolderName.trim(), currentParentId);
-                  await loadItems(true);
+                  
+                  // Optimistic UI Update (Instant feedback)
+                  const tempId = "temp-" + Date.now();
+                  setCurrentItems(prev => [{
+                    id: tempId,
+                    name: name,
+                    item_type: "FOLDER",
+                    size_bytes: 0,
+                    updated_at: new Date().toISOString(),
+                    item_count: 0,
+                    is_starred: false
+                  }, ...prev]);
+
+                  try {
+                    await api.createFolder(name, currentParentId);
+                  } finally { await loadItems(true); }
                 }
               }}
             />
@@ -678,9 +714,23 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
               <button 
                 onClick={async () => {
                   if (newFolderName.trim()) {
+                    const name = newFolderName.trim();
                     setIsCreateFolderOpen(false);
-                    await api.createFolder(newFolderName.trim(), currentParentId);
-                    await loadItems(true);
+                    
+                    const tempId = "temp-" + Date.now();
+                    setCurrentItems(prev => [{
+                      id: tempId,
+                      name: name,
+                      item_type: "FOLDER",
+                      size_bytes: 0,
+                      updated_at: new Date().toISOString(),
+                      item_count: 0,
+                      is_starred: false
+                    }, ...prev]);
+
+                    try {
+                      await api.createFolder(name, currentParentId);
+                    } finally { await loadItems(true); }
                   }
                 }}
                 className="cozy-button text-primary-foreground px-5 py-2 rounded-xl text-sm font-medium"

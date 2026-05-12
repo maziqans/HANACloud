@@ -106,6 +106,51 @@ def upload_files(request):
     if parent_id and parent_id != 'null':
         parent = get_object_or_404(CloudFile, id=parent_id, user=request.user)
         
+    chunk_index = request.data.get('chunk_index')
+    total_chunks = request.data.get('total_chunks')
+    
+    if chunk_index is not None and total_chunks is not None:
+        from django.conf import settings
+        import shutil
+        
+        chunk_index = int(chunk_index)
+        total_chunks = int(total_chunks)
+        file_id = request.data.get('file_id')
+        filename = request.data.get('filename')
+        
+        files_list = request.FILES.getlist('files')
+        if not files_list:
+            return Response({"error": "No file chunk provided"}, status=400)
+        chunk = files_list[0]
+        
+        temp_dir = os.path.join(settings.MEDIA_ROOT, 'tmp', str(file_id))
+        os.makedirs(temp_dir, exist_ok=True)
+        
+        chunk_path = os.path.join(temp_dir, str(chunk_index))
+        with open(chunk_path, 'wb+') as f:
+            for data in chunk.chunks():
+                f.write(data)
+                
+        if len(os.listdir(temp_dir)) == total_chunks:
+            final_path = os.path.join(settings.MEDIA_ROOT, 'tmp', f"final_{file_id}")
+            with open(final_path, 'wb+') as dest_file:
+                for i in range(total_chunks):
+                    part_path = os.path.join(temp_dir, str(i))
+                    if os.path.exists(part_path):
+                        with open(part_path, 'rb') as source_file:
+                            dest_file.write(source_file.read())
+            
+            from django.core.files import File
+            with open(final_path, 'rb') as f:
+                django_file = File(f, name=filename)
+                CloudFile.objects.create(user=request.user, file=django_file, parent=parent, name=filename)
+            
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            if os.path.exists(final_path):
+                os.remove(final_path)
+            
+        return Response({"message": "Chunk processed"})
+        
     for f in request.FILES.getlist('files'):
         CloudFile.objects.create(user=request.user, file=f, parent=parent)
     return Response({"message": "Files uploaded successfully"})
