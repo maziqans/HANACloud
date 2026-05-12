@@ -12,6 +12,8 @@ services:
     environment:
       - NODE_ENV=development
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://192.168.56.101:8080/api}
+      # Using Tailscale IP for secure private network access
+      - NEXT_PUBLIC_API_URL=http://100.64.76.1:8080/api
     depends_on:
       - backend
 

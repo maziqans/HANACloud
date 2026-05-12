@@ -7,7 +7,7 @@ import { ViewToggle } from "./view-toggle"
 import { FolderCard } from "./folder-card"
 import { FileCard } from "./file-card"
 import { FileRow } from "./file-row"
-import { Inbox, CheckCircle2, Loader2, MoreHorizontal, ChevronRight, Star, Upload, X, Download } from "lucide-react"
+import { Inbox, CheckCircle2, Loader2, MoreHorizontal, ChevronRight, Star, Upload, X, Download, ArrowUp, ArrowDown, Play } from "lucide-react"
 
 export interface CloudItem {
   id: string
@@ -59,6 +59,8 @@ interface MainContentProps {
 export function MainContent({ activeSection = "My Drive", user }: MainContentProps) {
   const [view, setView] = useState<"grid" | "list">("grid")
   const [searchQuery, setSearchQuery] = useState("")
+  const [sortBy, setSortBy] = useState<"name" | "date" | "size">("name")
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   const [currentItems, setCurrentItems] = useState<CloudItem[]>([])
   const [uploads, setUploads] = useState<{ id: string, filename: string, progress: number, complete: boolean, error?: string }[]>([])
@@ -353,8 +355,26 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
     }
   };
 
-  const folders = currentItems.filter((item) => item.item_type === "FOLDER")
-  const files = currentItems.filter((item) => item.item_type === "FILE")
+  // Apply Search Filtering
+  const filteredItems = currentItems.filter(item => 
+    item.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Apply Sorting
+  const sortedItems = [...filteredItems].sort((a, b) => {
+    let comparison = 0;
+    if (sortBy === "name") {
+      comparison = a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+    } else if (sortBy === "date") {
+      comparison = (a.updated_at ? new Date(a.updated_at).getTime() : 0) - (b.updated_at ? new Date(b.updated_at).getTime() : 0);
+    } else if (sortBy === "size") {
+      comparison = (a.size_bytes || 0) - (b.size_bytes || 0);
+    }
+    return sortDirection === "asc" ? comparison : -comparison;
+  });
+
+  const folders = sortedItems.filter((item) => item.item_type === "FOLDER")
+  const files = sortedItems.filter((item) => item.item_type === "FILE")
 
   const handleDownload = (id: string) => {
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api"
@@ -518,9 +538,33 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
 
       {/* Header */}
       <header className="px-8 py-6 border-b border-border bg-card/50">
-        <div className="flex items-center justify-between gap-6 mb-6">
-          <SearchBar value={searchQuery} onChange={setSearchQuery} />
-          <ViewToggle view={view} onViewChange={setView} />
+        <div className="flex items-center justify-between gap-6 mb-6 relative z-30">
+          <div className="flex-1 max-w-xl">
+            <SearchBar value={searchQuery} onChange={setSearchQuery} />
+          </div>
+          <div className="flex items-center gap-4">
+            {/* Sort Controls */}
+            <div className="flex items-center bg-white/5 border border-white/10 rounded-xl p-1 text-sm shadow-sm backdrop-blur-md">
+              <select 
+                value={sortBy} 
+                onChange={(e) => setSortBy(e.target.value as any)}
+                className="bg-transparent border-none text-white focus:outline-none px-3 py-1.5 cursor-pointer appearance-none font-medium outline-none"
+              >
+                <option value="name" className="text-black">Name</option>
+                <option value="date" className="text-black">Date</option>
+                <option value="size" className="text-black">Size</option>
+              </select>
+              <div className="w-px h-4 bg-white/20 mx-1" />
+              <button 
+                onClick={() => setSortDirection(prev => prev === "asc" ? "desc" : "asc")}
+                className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-white"
+                title={`Sort ${sortDirection === "asc" ? "Descending" : "Ascending"}`}
+              >
+                {sortDirection === "asc" ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
+              </button>
+            </div>
+            <ViewToggle view={view} onViewChange={setView} />
+          </div>
         </div>
 
         {/* Section Title */}
@@ -710,7 +754,11 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                 {view === "grid" ? (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                     {files.map((file) => (
-                      <div key={file.id} data-selection-id={`file-${file.id}`} className="selectable-item h-full">
+                      <div 
+                        key={file.id} 
+                        data-selection-id={`file-${file.id}`} 
+                        className="selectable-item h-full"
+                      >
                       <FileCard
                         name={file.name}
                         type={getFileType(file.name)}
@@ -726,6 +774,11 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                         onDelete={() => requestDelete(file.id, false)}
                         onRestore={async () => { await api.moveToTrash(file.id, false); loadItems(true); window.dispatchEvent(new Event("storageUpdated")); }}
                         onPermanentDelete={() => requestDelete(file.id, true)}
+                        previewUrl={
+                          ['image', 'video'].includes(getPreviewType(file.name) || '')
+                            ? `${process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api"}/download/${file.id}/`
+                            : undefined
+                        }
                       />
                       </div>
                     ))}
@@ -742,7 +795,11 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                     </div>
                     <div className="divide-y divide-border/50">
                       {files.map((file) => (
-                        <div key={file.id} data-selection-id={`file-${file.id}`} className="selectable-item">
+                        <div 
+                          key={file.id} 
+                          data-selection-id={`file-${file.id}`} 
+                          className="selectable-item"
+                        >
                         <FileRow
                           name={file.name}
                           type={getFileType(file.name)}
@@ -759,6 +816,11 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                           onDelete={() => requestDelete(file.id, false)}
                           onRestore={async () => { await api.moveToTrash(file.id, false); loadItems(true); window.dispatchEvent(new Event("storageUpdated")); }}
                           onPermanentDelete={() => requestDelete(file.id, true)}
+                        previewUrl={
+                          ['image', 'video'].includes(getPreviewType(file.name) || '')
+                            ? `${process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api"}/download/${file.id}/`
+                            : undefined
+                        }
                         />
                         </div>
                       ))}

@@ -20,6 +20,7 @@ interface FileCardProps {
   onShare?: () => void
   onDownload?: () => void
   onToggleStar?: () => void
+  previewUrl?: string
 }
 
 const fileIcons: Record<string, React.ElementType> = {
@@ -68,7 +69,8 @@ export function FileCard({
   onPermanentDelete,
   onShare,
   onDownload,
-  onToggleStar
+  onToggleStar,
+  previewUrl
 }: FileCardProps) {
   const Icon = fileIcons[type] || fileIcons.default
   const styles = fileStyles[type] || fileStyles.default
@@ -86,9 +88,15 @@ export function FileCard({
     >
       {/* File Icon */}
       <div className="w-full aspect-[4/3] mb-3 flex items-center justify-center">
-        <div className={cn("w-14 h-16 rounded-xl flex items-center justify-center", styles.bg)}>
-          <Icon className={cn("w-7 h-7", styles.icon)} strokeWidth={1.5} />
-        </div>
+        {previewUrl ? (
+          <div className="w-full h-full rounded-xl overflow-hidden bg-black/20 flex items-center justify-center">
+            <img src={previewUrl} alt={name} className="w-full h-full object-cover" />
+          </div>
+        ) : (
+          <div className={cn("w-14 h-16 rounded-xl flex items-center justify-center", styles.bg)}>
+            <Icon className={cn("w-7 h-7", styles.icon)} strokeWidth={1.5} />
+          </div>
+        )}
       </div>
 
       {/* File Info */}

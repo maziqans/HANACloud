@@ -21,6 +21,7 @@ interface FileRowProps {
   onShare?: () => void
   onDownload?: () => void
   onToggleStar?: () => void
+  previewUrl?: string
 }
 
 const fileIcons: Record<string, React.ElementType> = {
@@ -70,7 +71,8 @@ export function FileRow({
   onPermanentDelete,
   onShare,
   onDownload,
-  onToggleStar
+  onToggleStar,
+  previewUrl
 }: FileRowProps) {
   const Icon = fileIcons[type] || fileIcons.default
   const styles = fileStyles[type] || fileStyles.default
@@ -108,9 +110,15 @@ export function FileRow({
 
       {/* File name with icon */}
       <div className="flex items-center gap-3 min-w-0">
-        <div className={cn("p-2 rounded-lg", styles.bg)}>
-          <Icon className={cn("w-4 h-4", styles.icon)} strokeWidth={2} />
-        </div>
+        {previewUrl ? (
+          <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 bg-black/20">
+            <img src={previewUrl} alt={name} className="w-full h-full object-cover" />
+          </div>
+        ) : (
+          <div className={cn("p-2 rounded-lg", styles.bg)}>
+            <Icon className={cn("w-4 h-4", styles.icon)} strokeWidth={2} />
+          </div>
+        )}
         <span className="text-sm font-medium text-foreground truncate">
           {name}
         </span>
