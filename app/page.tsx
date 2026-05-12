@@ -122,7 +122,7 @@ export default function HANACloudPage() {
   }
 
   return (
-    <div className="flex min-h-screen relative overflow-hidden font-serif text-white">
+    <div className="flex min-h-screen relative overflow-hidden font-sans text-white">
       {/* Hotel Theme CSS Injection to Override Defaults */}
       <style dangerouslySetInnerHTML={{__html: `
         :root { color-scheme: dark; }
@@ -165,9 +165,6 @@ export default function HANACloudPage() {
         .cozy-button:hover { box-shadow: 0 0 25px rgba(255,255,255,0.2) !important; background-color: rgba(255,255,255,0.9) !important; }
         
         .bg-primary\\/10 { background-color: rgba(255, 255, 255, 0.1) !important; border-color: rgba(255, 255, 255, 0.4) !important; }
-
-        .selectable-item .bg-primary { background-color: #22c55e !important; color: white !important; border-color: #16a34a !important; }
-        .selectable-item .bg-primary svg { color: white !important; }
       `}} />
 
       {/* Background Image & Overlay */}
