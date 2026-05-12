@@ -7,7 +7,7 @@ import { ViewToggle } from "./view-toggle"
 import { FolderCard } from "./folder-card"
 import { FileCard } from "./file-card"
 import { FileRow } from "./file-row"
-import { Inbox, CheckCircle2, Loader2, MoreHorizontal, ChevronRight, Star } from "lucide-react"
+import { Inbox, CheckCircle2, Loader2, MoreHorizontal, ChevronRight, Star, Upload } from "lucide-react"
 
 export interface CloudItem {
   id: string
@@ -67,7 +67,12 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
   const [currentParentId, setCurrentParentId] = useState<string | null>(null)
   const [navStack, setNavStack] = useState<{id: string, name: string}[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isDragging, setIsDragging] = useState(false)
   const fetchIdRef = useRef(0)
+  
+  const [selectionBox, setSelectionBox] = useState<{ startX: number, startY: number, endX: number, endY: number } | null>(null)
+  const isSelecting = useRef(false)
+  const prevSelectedRef = useRef<Set<string>>(new Set())
   
   const [confirmAction, setConfirmAction] = useState<{
     isOpen: boolean;
@@ -126,12 +131,78 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
     return () => window.removeEventListener("createFolder", handleCreateFolder)
   }, [])
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files?.length) return
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
+        e.preventDefault();
+        const allIds = currentItems.map(item => `${item.item_type === 'FOLDER' ? 'folder' : 'file'}-${item.id}`);
+        setSelectedItems(new Set(allIds));
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentItems]);
 
-    const formData = new FormData()
+  useEffect(() => {
+    let animationFrameId: number;
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isSelecting.current) return;
+      e.preventDefault();
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+      animationFrameId = requestAnimationFrame(() => {
+        setSelectionBox(prev => prev ? { ...prev, endX: e.clientX, endY: e.clientY } : null);
+      });
+    };
+    const handleMouseUp = () => {
+      isSelecting.current = false;
+      setSelectionBox(null);
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (selectionBox && selectionBox.startX === selectionBox.endX && selectionBox.startY === selectionBox.endY) {
+      prevSelectedRef.current = new Set(selectedItems);
+    }
+  }, [selectionBox?.startX, selectionBox?.startY]);
+
+  useEffect(() => {
+    if (!selectionBox) return;
+    if (Math.abs(selectionBox.endX - selectionBox.startX) < 5 && Math.abs(selectionBox.endY - selectionBox.startY) < 5) return;
+
+    const boxRect = {
+      left: Math.min(selectionBox.startX, selectionBox.endX),
+      right: Math.max(selectionBox.startX, selectionBox.endX),
+      top: Math.min(selectionBox.startY, selectionBox.endY),
+      bottom: Math.max(selectionBox.startY, selectionBox.endY),
+    };
+
+    const elements = document.querySelectorAll('.selectable-item');
+    const newSelected = new Set<string>();
+
+    elements.forEach(el => {
+      const rect = el.getBoundingClientRect();
+      const isIntersecting = !(rect.right < boxRect.left || rect.left > boxRect.right || rect.bottom < boxRect.top || rect.top > boxRect.bottom);
+      if (isIntersecting) {
+        const id = el.getAttribute('data-selection-id');
+        if (id) newSelected.add(id);
+      }
+    });
+
+    setSelectedItems(newSelected);
+  }, [selectionBox?.endX, selectionBox?.endY]);
+
+  const processUploadFiles = async (files: File[]) => {
+    if (!files.length) return
+    
     const existingNames = currentItems.map((item) => item.name)
-    const files = Array.from(e.target.files)
     const filesToUpload: { file: File, finalName: string, path: string }[] = []
 
     for (const file of files) {
@@ -160,7 +231,6 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
     }
 
     if (filesToUpload.length === 0) {
-      e.target.value = ''
       return
     }
 
@@ -201,9 +271,35 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
         setUploads(prev => prev.filter(u => u.id !== upload.id))
       }, 5000)
     }
+  }
 
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files?.length) return
+    await processUploadFiles(Array.from(e.target.files))
     e.target.value = ''
   }
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+    
+    // Disable dragging directly into the trash
+    if (activeSection === "Trash") return
+    if (!e.dataTransfer.files?.length) return
+    
+    await processUploadFiles(Array.from(e.dataTransfer.files))
+  }
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('a') || target.closest('input') || target.closest('.selectable-item')) return; 
+    isSelecting.current = true;
+    setSelectionBox({ startX: e.clientX, startY: e.clientY, endX: e.clientX, endY: e.clientY });
+    if (!e.ctrlKey && !e.metaKey && !e.shiftKey) {
+      setSelectedItems(new Set());
+    }
+  };
 
   const folders = currentItems.filter((item) => item.item_type === "FOLDER")
   const files = currentItems.filter((item) => item.item_type === "FILE")
@@ -290,7 +386,10 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
   }
 
   return (
-    <main className="flex-1 flex flex-col min-h-screen overflow-hidden bg-background animate-in fade-in duration-700">
+    <main 
+      className="flex-1 flex flex-col min-h-screen overflow-hidden bg-background animate-in fade-in duration-700 relative"
+      onDragOver={(e) => { e.preventDefault(); if (activeSection !== "Trash") setIsDragging(true); }}
+    >
       <input type="file" multiple className="hidden" id="file-upload" onChange={handleUpload} />
       <input type="file" multiple webkitdirectory="true" className="hidden" id="folder-upload" onChange={handleUpload} />
 
@@ -354,7 +453,10 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
       </header>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-auto px-8 py-6">
+      <div 
+        className="flex-1 overflow-auto px-8 py-6"
+        onMouseDown={handleMouseDown}
+      >
         {/* Selection Action Bar */}
         {selectedItems.size > 0 && (
           <div className="bg-primary text-primary-foreground px-6 py-3 rounded-2xl flex items-center justify-between mb-6 shadow-lg animate-in slide-in-from-top-2">
@@ -413,7 +515,8 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                       <div 
                         key={folder.id} 
                         onDoubleClick={() => handleDoubleClick(folder)}
-                        className="relative group"
+                        className="relative group selectable-item"
+                        data-selection-id={`folder-${folder.id}`}
                       >
                         <FolderCard
                           name={folder.name}
@@ -450,8 +553,8 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                 ) : (
                   <div className="space-y-1">
                     {folders.map((folder) => (
+                      <div key={folder.id} data-selection-id={`folder-${folder.id}`} className="selectable-item">
                       <FileRow
-                        key={folder.id}
                         name={folder.name}
                         type="default"
                         size={folder.item_count === 1 ? "1 item" : `${folder.item_count || 0} items`}
@@ -468,6 +571,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                         onShare={() => alert("Share functionality coming soon!")}
                         onDownload={() => alert("Downloading entire folders coming soon!")}
                       />
+                      </div>
                     ))}
                   </div>
                 )}
@@ -483,8 +587,8 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                 {view === "grid" ? (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                     {files.map((file) => (
+                      <div key={file.id} data-selection-id={`file-${file.id}`} className="selectable-item h-full">
                       <FileCard
-                        key={file.id}
                         name={file.name}
                         type={getFileType(file.name)}
                         size={formatBytes(file.size_bytes)}
@@ -500,6 +604,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                         onRestore={async () => { await api.moveToTrash(file.id, false); loadItems(true); window.dispatchEvent(new Event("storageUpdated")); }}
                         onPermanentDelete={() => requestDelete(file.id, true)}
                       />
+                      </div>
                     ))}
                   </div>
                 ) : (
@@ -514,8 +619,8 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                     </div>
                     <div className="divide-y divide-border/50">
                       {files.map((file) => (
+                        <div key={file.id} data-selection-id={`file-${file.id}`} className="selectable-item">
                         <FileRow
-                          key={file.id}
                           name={file.name}
                           type={getFileType(file.name)}
                           size={formatBytes(file.size_bytes)}
@@ -532,6 +637,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                           onRestore={async () => { await api.moveToTrash(file.id, false); loadItems(true); window.dispatchEvent(new Event("storageUpdated")); }}
                           onPermanentDelete={() => requestDelete(file.id, true)}
                         />
+                        </div>
                       ))}
                     </div>
                   </div>
@@ -652,6 +758,34 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
             ))}
           </div>
         </div>
+      )}
+
+      {/* Drag & Drop Overlay */}
+      {isDragging && (
+        <div 
+          className="absolute inset-0 z-[100] bg-background/80 backdrop-blur-sm border-4 border-dashed border-primary/50 m-4 rounded-2xl flex items-center justify-center transition-all"
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={handleDrop}
+          onDragOver={(e) => e.preventDefault()}
+        >
+          <div className="bg-card px-8 py-6 rounded-2xl shadow-2xl flex flex-col items-center gap-4 animate-in zoom-in-95 pointer-events-none">
+             <Upload className="w-12 h-12 text-primary" />
+             <h2 className="text-xl font-semibold text-foreground">Drop files here to upload</h2>
+          </div>
+        </div>
+      )}
+
+      {/* Drag Selection Box */}
+      {selectionBox && (
+        <div 
+          className="fixed border border-primary/50 bg-primary/10 pointer-events-none z-[100]"
+          style={{
+            left: Math.min(selectionBox.startX, selectionBox.endX),
+            top: Math.min(selectionBox.startY, selectionBox.endY),
+            width: Math.abs(selectionBox.endX - selectionBox.startX),
+            height: Math.abs(selectionBox.endY - selectionBox.startY),
+          }}
+        />
       )}
     </main>
   )

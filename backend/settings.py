@@ -104,3 +104,12 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Allow Next.js frontend to communicate with this Django API
 CORS_ALLOW_ALL_ORIGINS = True
+
+# --- LARGE FILE UPLOAD SETTINGS ---
+# Route large file chunks to the persistent storage volume instead of the tiny container /tmp disk
+FILE_UPLOAD_TEMP_DIR = os.path.join(MEDIA_ROOT, 'tmp')
+os.makedirs(FILE_UPLOAD_TEMP_DIR, exist_ok=True)
+
+# Increase Django's body and upload limits to 5GB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024 * 1024  # 5 GB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024        # 10 MB (Files larger than this stream directly to disk)

@@ -28,6 +28,9 @@ services:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_HOST=db
       - POSTGRES_PORT=5432
+      # Prevent the backend server from timing out during massive file uploads (set to 3600s / 1 hour)
+      - GUNICORN_CMD_ARGS=--timeout 3600 --workers 3 --threads 2
+      - TIMEOUT=3600
     depends_on:
       - db
 

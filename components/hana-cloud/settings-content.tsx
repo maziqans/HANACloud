@@ -65,21 +65,39 @@ export function SettingsContent({ user, onUpdate, activeSection = "Profile Setti
             <div>
               <label className="block text-sm font-medium mb-4 text-muted-foreground">Avatar</label>
               <div className="flex items-center gap-6">
-                <div className="w-24 h-24 rounded-full bg-secondary/50 flex items-center justify-center border border-border/50 overflow-hidden shadow-sm text-muted-foreground/50">
+                <div className="w-24 h-24 rounded-full bg-secondary/50 flex items-center justify-center border border-border/50 overflow-hidden shadow-sm text-muted-foreground/50 shrink-0">
                   {user?.avatar_url ? (
                     <img src={user.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
                   ) : (
                     <User className="w-10 h-10" />
                   )}
                 </div>
-                <label className="cursor-pointer px-5 py-2.5 bg-background hover:bg-secondary/50 rounded-full text-sm font-medium transition-colors border border-border shadow-sm flex items-center gap-2">
-                  <Upload className="w-4 h-4" /> Upload New
-                  <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
-                    if(e.target.files?.[0]) {
-                       const form = new FormData(); form.append("avatar", e.target.files[0]); await api.updateProfile(form); onUpdate?.(); alert("Avatar uploaded!");
-                    }
-                  }} />
-                </label>
+                <div className="flex items-center gap-3">
+                  <label className="cursor-pointer px-5 py-2.5 bg-background hover:bg-secondary/50 rounded-full text-sm font-medium transition-colors border border-border shadow-sm flex items-center gap-2">
+                    <Upload className="w-4 h-4" /> Upload New
+                    <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                      if(e.target.files?.[0]) {
+                         const form = new FormData(); form.append("avatar", e.target.files[0]); await api.updateProfile(form); onUpdate?.(); alert("Avatar uploaded!");
+                      }
+                    }} />
+                  </label>
+                  {user?.avatar_url && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (window.confirm("Are you sure you want to remove your avatar?")) {
+                          const form = new FormData();
+                          form.append("remove_avatar", "true");
+                          await api.updateProfile(form);
+                          onUpdate?.();
+                        }
+                      }}
+                      className="px-5 py-2.5 bg-destructive/10 text-destructive hover:bg-destructive hover:text-white rounded-full text-sm font-medium transition-colors"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

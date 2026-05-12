@@ -29,9 +29,12 @@ def profile_settings(request):
     user = request.user
     profile, created = UserProfile.objects.get_or_create(user=user)
 
-    # Handle avatar upload
+    # Handle avatar upload or removal
     if 'avatar' in request.FILES:
         profile.avatar = request.FILES['avatar']
+        profile.save()
+    elif request.data.get('remove_avatar') == 'true':
+        profile.avatar = None
         profile.save()
 
     # Handle password change
