@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import * as api from "@/lib/api"
 import { SearchBar } from "./search-bar"
 import { ViewToggle } from "./view-toggle"
@@ -67,6 +67,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
   const [currentParentId, setCurrentParentId] = useState<string | null>(null)
   const [navStack, setNavStack] = useState<{id: string, name: string}[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const fetchIdRef = useRef(0)
   
   const [confirmAction, setConfirmAction] = useState<{
     isOpen: boolean;
@@ -76,39 +77,45 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
     confirmText: string;
   } | null>(null);
 
+  const [prevSection, setPrevSection] = useState(activeSection);
+
+  if (activeSection !== prevSection) {
+    setPrevSection(activeSection);
+    setCurrentParentId(null);
+    setNavStack([]);
+    setSelectedItems(new Set());
+  }
+
   const loadItems = async (isBackground = false) => {
+    const fetchId = ++fetchIdRef.current;
     if (!isBackground) setIsLoading(true)
     try {
+      let data;
       if (activeSection === "Trash") {
-        const data = await api.fetchTrashItems()
-        if (Array.isArray(data)) setCurrentItems(data)
+        data = await api.fetchTrashItems()
       } else if (activeSection === "Recent") {
-        const data = await api.fetchRecentItems()
-        if (Array.isArray(data)) setCurrentItems(data)
+        data = await api.fetchRecentItems()
       } else if (activeSection === "Starred") {
-        const data = await api.fetchStarredItems()
-        if (Array.isArray(data)) setCurrentItems(data)
+        data = await api.fetchStarredItems()
       } else {
-        const data = await api.fetchItems(currentParentId)
-        if (Array.isArray(data)) setCurrentItems(data)
+        data = await api.fetchItems(currentParentId)
+      }
+
+      if (fetchId === fetchIdRef.current && Array.isArray(data)) {
+        setCurrentItems(data)
       }
     } catch (error) {
       console.error("Failed to fetch items:", error)
     } finally {
-      if (!isBackground) setIsLoading(false)
+      if (fetchId === fetchIdRef.current) {
+        setIsLoading(false)
+      }
     }
   }
 
   useEffect(() => {
-    setCurrentParentId(null);
-    setNavStack([]);
-    setSelectedItems(new Set());
     loadItems();
-  }, [activeSection])
-
-  useEffect(() => {
-    loadItems()
-  }, [currentParentId])
+  }, [activeSection, currentParentId])
 
   useEffect(() => {
     const handleCreateFolder = () => {

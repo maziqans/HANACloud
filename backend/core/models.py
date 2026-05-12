@@ -51,6 +51,12 @@ class CloudFile(models.Model):
     updated_at = models.DateTimeField(auto_now=True) # Use auto_now for last modified
     last_viewed_at = models.DateTimeField(null=True, blank=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['user', 'is_trashed', 'parent']),
+            models.Index(fields=['user', 'is_trashed', 'is_folder', '-last_viewed_at']),
+        ]
+
     def save(self, *args, **kwargs):
         # Auto-calculate sizes and categories upon save
         if not self.pk and self.file:
