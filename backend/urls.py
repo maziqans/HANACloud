@@ -36,6 +36,10 @@ urlpatterns = [
     path('api/share/<str:item_id>/', views.share_item),
     path('api/shared/<str:token>/', views.shared_item_info),
 
+    path('api/share/requests/', views.pending_access_requests),
+    path('api/share/requests/<int:req_id>/<str:action>/', views.review_access_request),
+    path('api/shared/<str:token>/request/', views.request_access),
+
     path('api/move/', views.move_items),
     path('api/copy/', views.copy_items),
 

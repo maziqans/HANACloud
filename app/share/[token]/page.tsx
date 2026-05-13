@@ -39,6 +39,8 @@ export default function SharedPage() {
   const [item, setItem] = useState<SharedItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [requestStatus, setRequestStatus] = useState<string | null>(null)
+  const [fileName, setFileName] = useState("")
 
   useEffect(() => {
     if (!token) return;
@@ -48,9 +50,19 @@ export default function SharedPage() {
         const tokenStr = localStorage.getItem("access_token") || localStorage.getItem("token") || "";
         const headers = tokenStr ? { "Authorization": `Bearer ${tokenStr}` } : {};
         const res = await fetch(`${baseUrl}/shared/${token}/`, { headers })
-        if (!res.ok) throw new Error("This share link is invalid or has expired.")
         const data = await res.json()
-        if (data.error) throw new Error(data.error)
+        if (!res.ok) {
+          if (res.status === 401) {
+            window.location.href = `/?redirect=${encodeURIComponent(window.location.pathname)}`
+            return;
+          }
+          if (res.status === 403 && data.error === 'access_denied') {
+            setRequestStatus(data.request_status)
+            setFileName(data.file_name)
+            return;
+          }
+          throw new Error(data.error || "This share link is invalid or has expired.")
+        }
         setItem(data)
       } catch (err: any) {
         setError(err.message)
@@ -74,6 +86,35 @@ export default function SharedPage() {
         <div className="absolute inset-0 z-0 bg-gradient-to-b from-black/60 via-black/70 to-black/90 fixed" />
         <Loader2 className="w-10 h-10 animate-spin text-white mb-4 relative z-10" />
         <p>Loading shared secure file...</p>
+      </div>
+    )
+  }
+
+  if (requestStatus) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-center px-6 relative text-white">
+        <div className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat fixed" style={{ backgroundImage: `url('/login-bg.png')` }} />
+        <div className="absolute inset-0 z-0 bg-gradient-to-b from-black/60 via-black/70 to-black/90 fixed" />
+        <div className="relative z-10 w-20 h-20 bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(234,179,8,0.2)]">
+          <File className="w-10 h-10" />
+        </div>
+        <h1 className="relative z-10 text-3xl font-light tracking-wide mb-2">Request Access</h1>
+        <p className="relative z-10 text-white/60 mb-8">You need permission to access <strong>{fileName}</strong>.</p>
+        
+        {requestStatus === 'NONE' || requestStatus === 'REJECTED' ? (
+          <button onClick={async () => {
+             const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api";
+             const tokenStr = localStorage.getItem("access_token") || localStorage.getItem("token") || "";
+             await fetch(`${baseUrl}/shared/${token}/request/`, { method: "POST", headers: { "Authorization": `Bearer ${tokenStr}` }});
+             setRequestStatus("PENDING");
+          }} className="relative z-10 px-8 py-3.5 bg-white text-slate-900 rounded-xl text-sm font-semibold uppercase tracking-widest shadow-lg transition-colors hover:bg-white/90">
+            Request Access
+          </button>
+        ) : (
+          <div className="relative z-10 px-8 py-3.5 bg-white/10 text-white rounded-xl text-sm font-semibold uppercase tracking-widest border border-white/20">
+            Request Pending...
+          </div>
+        )}
       </div>
     )
   }
@@ -114,6 +155,12 @@ export default function SharedPage() {
             <p className="text-white/60">Shared securely by <span className="font-medium text-white">{item.owner}</span> • {item.user_role && <span className="text-white bg-white/10 px-2 py-0.5 rounded text-xs ml-1">{item.user_role}</span>} • {item.item_type === "FOLDER" ? `${item.children?.length} items` : formatBytes(item.size_bytes)}</p>
           </div>
           
+          {typeof window !== "undefined" && !localStorage.getItem("access_token") && !item.user_role && (
+            <button onClick={() => window.location.href = `/?redirect=${encodeURIComponent(window.location.pathname)}`} className="px-6 py-3 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-xl text-xs font-semibold uppercase tracking-widest transition-colors shadow-lg w-full md:w-auto text-center">
+              Log in to save to Shared with me
+            </button>
+          )}
+
           {item.item_type === "FILE" && (
             <button onClick={() => handleDownload(item.id)} className="px-8 py-3.5 bg-white hover:bg-white/90 text-slate-900 rounded-xl font-semibold uppercase tracking-widest text-xs transition-colors shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] flex items-center gap-3 w-full md:w-auto justify-center">
               <Download className="w-5 h-5" /> Download File

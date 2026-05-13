@@ -113,6 +113,16 @@ export const saveShareSettings = async (itemId: string, share_mode: string, perm
   return response.data;
 };
 
+export const getPendingRequests = async () => {
+  const response = await apiClient.get('/share/requests/');
+  return response.data;
+};
+
+export const reviewAccessRequest = async (reqId: number, action: 'approve' | 'reject') => {
+  const response = await apiClient.post(`/share/requests/${reqId}/${action}/`);
+  return response.data;
+};
+
 export const deleteAccount = async () => {
   const response = await apiClient.delete('/account/');
   return response.data;

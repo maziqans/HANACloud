@@ -6,7 +6,21 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.db.models import Sum, Count, Q
 import os
-from core.models import CloudFile, UserProfile, FileAccess
+from core.models import CloudFile, UserProfile, FileAccess, AccessRequest
+
+def check_edit_access(user, folder):
+    """Helper to check if a user is allowed to modify files inside a target folder."""
+    if not folder: return True
+    if folder.user == user: return True
+    if folder.share_mode == 'PUBLIC': return True
+    
+    accessible_ids = set(FileAccess.objects.filter(user=user, role='EDITOR').values_list('file_id', flat=True))
+    curr = folder
+    while curr:
+        if curr.share_mode == 'PUBLIC' or curr.user == user or curr.id in accessible_ids:
+            return True
+        curr = curr.parent
+    return False
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -123,6 +137,8 @@ def upload_files(request):
     parent = None
     if parent_id and parent_id != 'null':
         parent = get_object_or_404(CloudFile, id=parent_id, user=request.user)
+        if not check_edit_access(request.user, parent):
+            return Response({"error": "You do not have editor permission for this folder"}, status=403)
         
     chunk_index = request.data.get('chunk_index')
     total_chunks = request.data.get('total_chunks')
@@ -183,7 +199,9 @@ def create_folder(request):
     
     parent = None
     if parent_id and parent_id != 'null':
-        parent = get_object_or_404(CloudFile, id=parent_id, user=request.user)
+        parent = get_object_or_404(CloudFile, id=parent_id)
+        if not check_edit_access(request.user, parent):
+            return Response({"error": "You do not have editor permission for this folder"}, status=403)
     
     folder = CloudFile.objects.create(user=request.user, name=name, is_folder=True, category='FOLDER', parent=parent)
     
@@ -268,13 +286,16 @@ def shared_item_info(request, token):
             return Response({"error": "This item is restricted. Please log in to view it."}, status=401)
         has_access = (item.user == auth_user) or item.access_permissions.filter(user=auth_user).exists()
         if not has_access:
-            # Auto-grant Viewer access if they followed a restricted link and logged in successfully
-            FileAccess.objects.create(file=item, user=auth_user, role='VIEWER')
-            has_access = True
+            # Item is restricted and they aren't invited -> Send Request Status
+            req = AccessRequest.objects.filter(file=item, user=auth_user).first()
+            status = req.status if req else 'NONE'
+            return Response({"error": "access_denied", "request_status": status, "file_name": item.name}, status=403)
             
         user_role = 'OWNER' if item.user == auth_user else item.access_permissions.get(user=auth_user).role
     else:
         user_role = 'VIEWER' if not auth_user or not auth_user.is_authenticated or item.user != auth_user else 'OWNER'
+        if auth_user and auth_user.is_authenticated and item.user != auth_user:
+            FileAccess.objects.get_or_create(file=item, user=auth_user, defaults={'role': 'VIEWER'})
 
     data = {
         "id": str(item.id),
@@ -327,6 +348,33 @@ def shared_with_me_items(request):
             "owner": owner_name
         })
     return Response(data)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def request_access(request, token):
+    item = get_object_or_404(CloudFile, share_token=token)
+    AccessRequest.objects.update_or_create(file=item, user=request.user, defaults={'status': 'PENDING'})
+    return Response({"message": "Access request sent successfully"})
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def pending_access_requests(request):
+    requests = AccessRequest.objects.filter(file__user=request.user, status='PENDING').select_related('user', 'file')
+    data = [{"id": r.id, "user_email": r.user.email, "file_name": r.file.name, "created_at": r.created_at} for r in requests]
+    return Response(data)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def review_access_request(request, req_id, action):
+    req = get_object_or_404(AccessRequest, id=req_id, file__user=request.user)
+    if action == 'approve':
+        req.status = 'APPROVED'
+        req.save()
+        FileAccess.objects.update_or_create(file=req.file, user=req.user, defaults={'role': 'VIEWER'})
+    elif action == 'reject':
+        req.status = 'REJECTED'
+        req.save()
+    return Response({"message": f"Request {action}d"})
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -423,7 +471,10 @@ def download_file(request, file_id):
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
 def move_to_trash(request, item_id):
-    item = get_object_or_404(CloudFile, id=item_id, user=request.user)
+    item = get_object_or_404(CloudFile, id=item_id)
+    if item.user != request.user and not check_edit_access(request.user, item.parent):
+        return Response({"error": "No permission to delete"}, status=403)
+        
     is_trashed = request.data.get('is_trashed', True)
     
     def set_trashed(folder, state):
@@ -601,7 +652,10 @@ def empty_trash(request):
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def permanent_delete(request, item_id):
-    CloudFile.objects.filter(id=item_id, user=request.user).delete()
+    item = get_object_or_404(CloudFile, id=item_id)
+    if item.user != request.user and not check_edit_access(request.user, item.parent):
+        return Response({"error": "No permission to delete"}, status=403)
+    item.delete()
     return Response({"message": "Item permanently deleted"})
 
 @api_view(['POST'])

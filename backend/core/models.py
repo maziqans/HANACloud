@@ -128,3 +128,12 @@ class FileAccess(models.Model):
 
     class Meta:
         unique_together = ('file', 'user')
+
+class AccessRequest(models.Model):
+    file = models.ForeignKey(CloudFile, on_delete=models.CASCADE, related_name='access_requests')
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    status = models.CharField(max_length=10, choices=[('PENDING', 'Pending'), ('APPROVED', 'Approved'), ('REJECTED', 'Rejected')], default='PENDING')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('file', 'user')

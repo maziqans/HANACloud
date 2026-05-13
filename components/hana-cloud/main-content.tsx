@@ -7,7 +7,7 @@ import { ViewToggle } from "./view-toggle"
 import { FolderCard } from "./folder-card"
 import { FileCard } from "./file-card"
 import { FileRow } from "./file-row"
-import { Inbox, CheckCircle2, Loader2, MoreHorizontal, ChevronRight, ChevronDown, Star, Upload, X, Download, ArrowUp, ArrowDown, Play } from "lucide-react"
+import { Inbox, CheckCircle2, Loader2, MoreHorizontal, ChevronRight, ChevronDown, Star, Upload, X, Download, ArrowUp, ArrowDown, Play, Bell } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export interface CloudItem {
@@ -92,6 +92,8 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
   
   const [isCopied, setIsCopied] = useState(false)
   const [isSortMenuOpen, setIsSortMenuOpen] = useState(false)
+  const [pendingRequests, setPendingRequests] = useState<any[]>([])
+  const [showRequests, setShowRequests] = useState(false)
 
   const [folderPicker, setFolderPicker] = useState<{
     isOpen: boolean;
@@ -603,6 +605,35 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                   </div>
                 </div>
               )}
+              <div className="w-px h-4 bg-white/20 mx-1" />
+              {/* Notifications */}
+              <div className="relative">
+                <button onClick={() => setShowRequests(!showRequests)} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-white relative">
+                  <Bell className="w-4 h-4" />
+                  {pendingRequests.length > 0 && <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>}
+                </button>
+                {showRequests && (
+                  <div className="absolute top-full right-0 mt-2 w-80 bg-black/80 backdrop-blur-2xl border border-white/20 shadow-2xl rounded-xl overflow-hidden z-50 p-2">
+                    <h4 className="text-xs uppercase tracking-widest text-white/50 font-semibold px-3 py-2 mb-1">Access Requests</h4>
+                    {pendingRequests.length === 0 ? (
+                      <div className="px-3 py-4 text-sm text-white/40 text-center">No pending requests</div>
+                    ) : (
+                      <div className="max-h-64 overflow-y-auto custom-scrollbar space-y-1">
+                        {pendingRequests.map(req => (
+                          <div key={req.id} className="p-3 bg-white/5 rounded-lg border border-white/10">
+                            <p className="text-sm text-white truncate mb-1"><strong>{req.user_email}</strong></p>
+                            <p className="text-xs text-white/60 truncate mb-3">Requested access to: {req.file_name}</p>
+                            <div className="flex gap-2">
+                              <button onClick={async () => { await api.reviewAccessRequest(req.id, 'approve'); fetchRequests(); loadItems(true); }} className="flex-1 py-1.5 bg-white text-slate-900 text-xs font-bold rounded">Approve</button>
+                              <button onClick={async () => { await api.reviewAccessRequest(req.id, 'reject'); fetchRequests(); }} className="flex-1 py-1.5 bg-white/10 text-white text-xs font-bold rounded hover:bg-red-500/20 hover:text-red-400">Reject</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
               <div className="w-px h-4 bg-white/20 mx-1" />
               <button 
                 onClick={() => setSortDirection(prev => prev === "asc" ? "desc" : "asc")}
