@@ -7,7 +7,8 @@ import { ViewToggle } from "./view-toggle"
 import { FolderCard } from "./folder-card"
 import { FileCard } from "./file-card"
 import { FileRow } from "./file-row"
-import { Inbox, CheckCircle2, Loader2, MoreHorizontal, ChevronRight, Star, Upload, X, Download, ArrowUp, ArrowDown, Play } from "lucide-react"
+import { Inbox, CheckCircle2, Loader2, MoreHorizontal, ChevronRight, ChevronDown, Star, Upload, X, Download, ArrowUp, ArrowDown, Play } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 export interface CloudItem {
   id: string
@@ -406,6 +407,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
   }
 
   const getPreviewType = (name: string) => {
+    if (!name) return null;
     const ext = name.slice(name.lastIndexOf('.')).toLowerCase();
     if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext)) return 'image';
     if (['.mp4', '.webm', '.ogg'].includes(ext)) return 'video';
