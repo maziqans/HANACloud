@@ -6,7 +6,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.db.models import Sum, Count, Q
 import os
-from core.models import CloudFile, UserProfile
+from core.models import CloudFile, UserProfile, FileAccess
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -81,9 +81,11 @@ def drive_items(request):
         if parent.share_mode == 'PUBLIC' or parent.user == request.user or parent.access_permissions.filter(user=request.user).exists():
             has_access = True
         else:
+            # OPTIMIZATION: Prevent N+1 by fetching all allowed IDs into memory at once
+            accessible_ids = set(FileAccess.objects.filter(user=request.user).values_list('file_id', flat=True))
             curr = parent.parent
             while curr:
-                if curr.share_mode == 'PUBLIC' or curr.user == request.user or curr.access_permissions.filter(user=request.user).exists():
+                if curr.share_mode == 'PUBLIC' or curr.user == request.user or curr.id in accessible_ids:
                     has_access = True
                     break
                 curr = curr.parent
@@ -234,11 +236,11 @@ def share_item(request, item_id):
                         return Response({"error": f"User with email '{email}' not found. They must have an account."}, status=400)
             
             item.access_permissions.all().delete()
-            from core.models import FileAccess
             for u, role in users_to_add:
                 FileAccess.objects.create(file=item, user=u, role=role)
     
-    perms = [{"email": p.user.email, "role": p.role} for p in item.access_permissions.all()]
+    # Use select_related to prevent N+1 database queries when fetching user emails
+    perms = [{"email": p.user.email, "role": p.role} for p in item.access_permissions.select_related('user').all()]
     return Response({
         "share_token": item.share_token,
         "share_mode": item.share_mode,
@@ -267,7 +269,6 @@ def shared_item_info(request, token):
         has_access = (item.user == auth_user) or item.access_permissions.filter(user=auth_user).exists()
         if not has_access:
             # Auto-grant Viewer access if they followed a restricted link and logged in successfully
-            from core.models import FileAccess
             FileAccess.objects.create(file=item, user=auth_user, role='VIEWER')
             has_access = True
             
@@ -350,9 +351,10 @@ def file_thumbnail(request, file_id):
             has_access = True
             
     if not has_access:
+        accessible_ids = set(FileAccess.objects.filter(user=auth_user).values_list('file_id', flat=True)) if auth_user and auth_user.is_authenticated else set()
         curr = cloud_file.parent
         while curr:
-            if curr.share_mode == 'PUBLIC' or (auth_user and auth_user.is_authenticated and curr.access_permissions.filter(user=auth_user).exists()):
+            if curr.share_mode == 'PUBLIC' or (auth_user and auth_user.is_authenticated and (curr.user == auth_user or curr.id in accessible_ids)):
                 has_access = True
                 break
             curr = curr.parent
@@ -396,9 +398,10 @@ def download_file(request, file_id):
             
     # Inherit access if parent folder is explicitly shared
     if not has_access:
+        accessible_ids = set(FileAccess.objects.filter(user=auth_user).values_list('file_id', flat=True)) if auth_user and auth_user.is_authenticated else set()
         curr = cloud_file.parent
         while curr:
-            if curr.share_mode == 'PUBLIC' or (auth_user and auth_user.is_authenticated and curr.access_permissions.filter(user=auth_user).exists()):
+            if curr.share_mode == 'PUBLIC' or (auth_user and auth_user.is_authenticated and (curr.user == auth_user or curr.id in accessible_ids)):
                 has_access = True
                 break
             curr = curr.parent
