@@ -434,15 +434,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
 
   const handleShare = async (id: string) => {
     try {
-      // Direct fetch is used here to avoid needing to manually edit api.ts context
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api";
-      
-      const res = await fetch(`${baseUrl}/share/${id}/`, {
-        method: "GET",
-        headers: { "Authorization": `Bearer ${getToken()}` }
-      });
-      if (!res.ok) throw new Error("Failed to load share settings");
-      const data = await res.json();
+      const data = await api.getShareSettings(id);
       
       // Dynamically constructs using the active domain (IP or cloud.hanacasa.my)
       const shareUrl = `${window.location.origin}/share/${data.share_token}`;
@@ -457,23 +449,14 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
       setIsCopied(false);
     } catch (error) {
       console.error(error);
-      alert("Failed to access share settings.");
+      alert("Failed to access share settings. Make sure your database migrations are applied!");
     }
   }
 
   const saveShareSettings = async (mode: string, perms: {email: string, role: string}[]) => {
     setIsSavingShare(true);
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api";
-      const res = await fetch(`${baseUrl}/share/${shareModal!.item_id}/`, {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${getToken()}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ share_mode: mode, permissions: perms })
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to save settings");
-      }
+      await api.saveShareSettings(shareModal!.item_id, mode, perms);
       setShareModal(prev => prev ? { ...prev, share_mode: mode as any, permissions: perms } : null);
       setShareEmailInput("");
     } catch (e: any) {
@@ -603,7 +586,8 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
               </button>
               
               {isSortMenuOpen && (
-                <div className="absolute top-full left-0 mt-2 w-32 bg-black/80 backdrop-blur-2xl border border-white/20 shadow-2xl rounded-xl overflow-hidden z-50">
+                <div className="absolute top-full left-0 pt-2 w-32 z-50">
+                  <div className="bg-black/80 backdrop-blur-2xl border border-white/20 shadow-2xl rounded-xl overflow-hidden">
                   {["name", "date", "size"].map(option => (
                     <button
                       key={option}
@@ -616,6 +600,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                       {option}
                     </button>
                   ))}
+                  </div>
                 </div>
               )}
               <div className="w-px h-4 bg-white/20 mx-1" />
@@ -840,7 +825,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                         onPermanentDelete={() => requestDelete(file.id, true)}
                         previewUrl={
                           ['image', 'video', 'pdf'].includes(getPreviewType(file.name) || '')
-                            ? `${process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api"}/download/${file.id}/?token=${getToken()}`
+                            ? `${process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api"}/${getPreviewType(file.name) === 'image' ? 'thumbnail' : 'download'}/${file.id}/?token=${getToken()}`
                             : undefined
                         }
                         previewType={getPreviewType(file.name) || undefined}
@@ -883,7 +868,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                           onPermanentDelete={() => requestDelete(file.id, true)}
                         previewUrl={
                           ['image', 'video', 'pdf'].includes(getPreviewType(file.name) || '')
-                            ? `${process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api"}/download/${file.id}/?token=${getToken()}`
+                            ? `${process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api"}/${getPreviewType(file.name) === 'image' ? 'thumbnail' : 'download'}/${file.id}/?token=${getToken()}`
                             : undefined
                         }
                         previewType={getPreviewType(file.name) || undefined}

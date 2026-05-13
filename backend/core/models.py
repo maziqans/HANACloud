@@ -1,5 +1,8 @@
 import os
 import shutil
+from io import BytesIO
+from PIL import Image
+from django.core.files.base import ContentFile
 from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_delete, post_save
@@ -59,6 +62,7 @@ class CloudFile(models.Model):
     last_viewed_at = models.DateTimeField(null=True, blank=True)
     share_token = models.CharField(max_length=64, unique=True, null=True, blank=True)
     share_mode = models.CharField(max_length=15, choices=SHARE_MODE_CHOICES, default='RESTRICTED')
+    thumbnail = models.ImageField(upload_to='thumbnails/', null=True, blank=True)
 
     class Meta:
         indexes = [
@@ -68,15 +72,29 @@ class CloudFile(models.Model):
 
     def save(self, *args, **kwargs):
         # Auto-calculate sizes and categories upon save
-        if not self.pk and self.file:
-            self.file_size = self.file.size
+        is_new = not self.pk
+        if is_new and self.file:
+            if not self.file_size:
+                self.file_size = self.file.size
             if not self.name:
                 self.name = os.path.basename(self.file.name)
             
             ext = os.path.splitext(self.name)[1].lower()
             if ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']:
                 self.category = 'IMAGE'
-            elif ext in ['.mp4', '.mov', '.avi', '.mkv']:
+                
+                # Generate highly compressed thumbnail to save massive bandwidth/space
+                try:
+                    img = Image.open(self.file)
+                    img.thumbnail((400, 400)) # Maintain aspect ratio, max 400px
+                    if img.mode != 'RGB':
+                        img = img.convert('RGB')
+                    thumb_io = BytesIO()
+                    img.save(thumb_io, format='JPEG', quality=65) # Extremely efficient 65% quality
+                    self.thumbnail.save(f"thumb.jpg", ContentFile(thumb_io.getvalue()), save=False)
+                except Exception:
+                    pass
+            elif ext in ['.mp4', '.mov', '.avi', '.mkv', '.webm']:
                 self.category = 'VIDEO'
             elif ext in ['.pdf', '.doc', '.docx', '.txt', '.xls', '.xlsx']:
                 self.category = 'DOCUMENT'

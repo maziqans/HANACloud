@@ -324,6 +324,44 @@ def shared_with_me_items(request):
     return Response(data)
 
 @api_view(['GET'])
+@permission_classes([AllowAny])
+def file_thumbnail(request, file_id):
+    cloud_file = get_object_or_404(CloudFile, id=file_id)
+    
+    token = request.GET.get('token')
+    auth_user = request.user
+    if token:
+        from rest_framework_simplejwt.authentication import JWTAuthentication
+        try:
+            validated_token = JWTAuthentication().get_validated_token(token)
+            auth_user = JWTAuthentication().get_user(validated_token)
+        except Exception:
+            pass
+
+    has_access = False
+    if cloud_file.share_mode == 'PUBLIC':
+        has_access = True
+    elif auth_user and auth_user.is_authenticated:
+        if cloud_file.user == auth_user or cloud_file.access_permissions.filter(user=auth_user).exists():
+            has_access = True
+            
+    if not has_access:
+        curr = cloud_file.parent
+        while curr:
+            if curr.share_mode == 'PUBLIC' or (auth_user and auth_user.is_authenticated and curr.access_permissions.filter(user=auth_user).exists()):
+                has_access = True
+                break
+            curr = curr.parent
+
+    if not has_access:
+        return Response({"error": "Unauthorized"}, status=403)
+
+    if cloud_file.thumbnail:
+        return FileResponse(cloud_file.thumbnail.open('rb'), content_type='image/jpeg')
+        
+    return download_file._callback(request, file_id) # Safe fallback to original download logic
+
+@api_view(['GET'])
 @permission_classes([AllowAny]) # Standard HTML anchor links won't pass JWT headers easily
 def download_file(request, file_id):
     cloud_file = get_object_or_404(CloudFile, id=file_id)

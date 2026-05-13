@@ -103,6 +103,16 @@ export const requestStorage = async (reason: string) => {
   return response.data;
 };
 
+export const getShareSettings = async (itemId: string) => {
+  const response = await apiClient.get(`/share/${itemId}/`);
+  return response.data;
+};
+
+export const saveShareSettings = async (itemId: string, share_mode: string, permissions: any[]) => {
+  const response = await apiClient.post(`/share/${itemId}/`, { share_mode, permissions });
+  return response.data;
+};
+
 export const deleteAccount = async () => {
   const response = await apiClient.delete('/account/');
   return response.data;
