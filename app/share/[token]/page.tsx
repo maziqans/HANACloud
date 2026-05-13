@@ -23,6 +23,16 @@ const formatBytes = (bytes: number) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i]
 }
 
+const getPreviewType = (name: string) => {
+  if (!name) return null;
+  const ext = name.slice(name.lastIndexOf('.')).toLowerCase();
+  if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext)) return 'image';
+  if (['.mp4', '.webm', '.ogg'].includes(ext)) return 'video';
+  if (['.mp3', '.wav'].includes(ext)) return 'audio';
+  if (['.pdf'].includes(ext)) return 'pdf';
+  return null;
+}
+
 export default function SharedPage() {
   const params = useParams()
   const token = params?.token as string
@@ -80,7 +90,7 @@ export default function SharedPage() {
         <h1 className="relative z-10 text-3xl font-light tracking-wide mb-2">{isAuthError ? "Access Denied" : "Item Not Found"}</h1>
         <p className="relative z-10 text-white/60 mb-8">{error}</p>
         {isAuthError && (
-          <button onClick={() => window.location.href = "/"} className="relative z-10 px-8 py-3.5 bg-white text-slate-900 rounded-xl text-sm font-semibold uppercase tracking-widest shadow-lg">
+          <button onClick={() => window.location.href = `/?redirect=${encodeURIComponent(window.location.pathname)}`} className="relative z-10 px-8 py-3.5 bg-white text-slate-900 rounded-xl text-sm font-semibold uppercase tracking-widest shadow-lg">
             Log In to Verify
           </button>
         )}
@@ -110,6 +120,28 @@ export default function SharedPage() {
             </button>
           )}
         </div>
+
+        {item.item_type === "FILE" && (
+          <div className="p-6 md:p-8 bg-black/20 border-b border-white/10 flex justify-center">
+            {(() => {
+              const pType = getPreviewType(item.name);
+              const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api";
+              const tokenStr = typeof window !== "undefined" ? (localStorage.getItem("access_token") || localStorage.getItem("token") || "") : "";
+              const previewUrl = `${baseUrl}/download/${item.id}/?token=${tokenStr}`;
+              
+              if (pType === 'image') return <img src={previewUrl} alt={item.name} className="max-w-full max-h-[60vh] object-contain rounded-lg shadow-2xl" />;
+              if (pType === 'video') return <video src={previewUrl} controls autoPlay className="max-w-full max-h-[60vh] rounded-lg shadow-2xl bg-black" />;
+              if (pType === 'audio') return <audio src={previewUrl} controls autoPlay className="w-full max-w-md" />;
+              if (pType === 'pdf') return <iframe src={`${previewUrl}#toolbar=0`} className="w-full h-[70vh] rounded-lg bg-white" />;
+              return (
+                <div className="flex flex-col items-center py-12 text-white/40">
+                  <File className="w-20 h-20 mb-4 opacity-50" />
+                  <p className="text-sm">Preview not available for this file type.</p>
+                </div>
+              );
+            })()}
+          </div>
+        )}
 
         {item.item_type === "FOLDER" && item.children && (
           <div className="p-6 md:p-8">

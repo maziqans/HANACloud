@@ -49,6 +49,12 @@ export default function HANACloudPage() {
     try {
       await api.login({ username, password });
       await fetchUser();
+      
+      // Handle redirect back to restricted share link if applicable
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('redirect')) {
+        window.location.href = params.get('redirect') as string;
+      }
     } catch (err) {
       alert("Invalid credentials. Please try again.");
     } finally {

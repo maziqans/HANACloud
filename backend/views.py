@@ -266,7 +266,11 @@ def shared_item_info(request, token):
             return Response({"error": "This item is restricted. Please log in to view it."}, status=401)
         has_access = (item.user == auth_user) or item.access_permissions.filter(user=auth_user).exists()
         if not has_access:
-            return Response({"error": "You do not have permission to view this item."}, status=403)
+            # Auto-grant Viewer access if they followed a restricted link and logged in successfully
+            from core.models import FileAccess
+            FileAccess.objects.create(file=item, user=auth_user, role='VIEWER')
+            has_access = True
+            
         user_role = 'OWNER' if item.user == auth_user else item.access_permissions.get(user=auth_user).role
     else:
         user_role = 'VIEWER' if not auth_user or not auth_user.is_authenticated or item.user != auth_user else 'OWNER'
@@ -357,9 +361,14 @@ def file_thumbnail(request, file_id):
         return Response({"error": "Unauthorized"}, status=403)
 
     if cloud_file.thumbnail:
-        return FileResponse(cloud_file.thumbnail.open('rb'), content_type='image/jpeg')
+        resp = FileResponse(cloud_file.thumbnail.open('rb'), content_type='image/jpeg')
+        resp['Cache-Control'] = 'public, max-age=86400' # Cache locally for 24 hours
+        return resp
         
-    return download_file._callback(request, file_id) # Safe fallback to original download logic
+    resp = download_file._callback(request, file_id) # Safe fallback to original download logic
+    if isinstance(resp, FileResponse):
+        resp['Cache-Control'] = 'public, max-age=86400'
+    return resp
 
 @api_view(['GET'])
 @permission_classes([AllowAny]) # Standard HTML anchor links won't pass JWT headers easily
@@ -403,7 +412,10 @@ def download_file(request, file_id):
     ext = os.path.splitext(cloud_file.name)[1].lower()
     inline_exts = ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.webp', '.txt', '.mp4', '.webm', '.ogg', '.mp3', '.wav']
     as_attachment = ext not in inline_exts
-    return FileResponse(cloud_file.file.open('rb'), as_attachment=as_attachment, filename=cloud_file.name)
+    resp = FileResponse(cloud_file.file.open('rb'), as_attachment=as_attachment, filename=cloud_file.name)
+    if not as_attachment:
+        resp['Cache-Control'] = 'public, max-age=86400' # Speeds up preview reloading drastically
+    return resp
 
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
