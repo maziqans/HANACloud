@@ -17,6 +17,7 @@ export interface CloudItem {
   updated_at: string
   item_count?: number
   is_starred?: boolean
+  owner?: string
 }
 
 const formatBytes = (bytes: number) => {
@@ -76,8 +77,20 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
   const isSelecting = useRef(false)
   const prevSelectedRef = useRef<Set<string>>(new Set())
   const [previewItem, setPreviewItem] = useState<CloudItem | null>(null)
-  const [shareModal, setShareModal] = useState<{isOpen: boolean, url: string} | null>(null)
+  
+  const [shareModal, setShareModal] = useState<{
+    isOpen: boolean;
+    url: string;
+    item_id: string;
+    share_mode: "RESTRICTED" | "PUBLIC";
+    permissions: { email: string; role: string }[];
+  } | null>(null)
+  const [shareEmailInput, setShareEmailInput] = useState("")
+  const [shareRoleInput, setShareRoleInput] = useState("VIEWER")
+  const [isSavingShare, setIsSavingShare] = useState(false)
+  
   const [isCopied, setIsCopied] = useState(false)
+  const [isSortMenuOpen, setIsSortMenuOpen] = useState(false)
 
   const [folderPicker, setFolderPicker] = useState<{
     isOpen: boolean;
@@ -87,6 +100,8 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
   } | null>(null);
   const [pickerFolders, setPickerFolders] = useState<CloudItem[]>([]);
   const [isPickerLoading, setIsPickerLoading] = useState(false);
+
+  const getToken = () => typeof window !== "undefined" ? (localStorage.getItem("access_token") || localStorage.getItem("token") || "") : "";
   
   const [confirmAction, setConfirmAction] = useState<{
     isOpen: boolean;
@@ -110,14 +125,18 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
     if (!isBackground) setIsLoading(true)
     try {
       let data;
-      if (activeSection === "Trash") {
+      if (currentParentId) {
+        data = await api.fetchItems(currentParentId)
+      } else if (activeSection === "Trash") {
         data = await api.fetchTrashItems()
+      } else if (activeSection === "Shared with me") {
+        data = await api.fetchSharedWithMeItems()
       } else if (activeSection === "Recent") {
         data = await api.fetchRecentItems()
       } else if (activeSection === "Starred") {
         data = await api.fetchStarredItems()
       } else {
-        data = await api.fetchItems(currentParentId)
+        data = await api.fetchItems(null)
       }
 
       if (fetchId === fetchIdRef.current && Array.isArray(data)) {
@@ -379,7 +398,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
   const handleDownload = (id: string) => {
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api"
     const link = document.createElement("a")
-    link.href = `${baseUrl}/download/${id}/`
+    link.href = `${baseUrl}/download/${id}/?token=${getToken()}`
     link.target = "_blank"
     document.body.appendChild(link)
     link.click()
@@ -391,6 +410,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
     if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext)) return 'image';
     if (['.mp4', '.webm', '.ogg'].includes(ext)) return 'video';
     if (['.mp3', '.wav'].includes(ext)) return 'audio';
+    if (['.pdf'].includes(ext)) return 'pdf';
     return null;
   }
 
@@ -414,23 +434,50 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
     try {
       // Direct fetch is used here to avoid needing to manually edit api.ts context
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api";
-      const token = localStorage.getItem("access_token") || localStorage.getItem("token") || "";
       
       const res = await fetch(`${baseUrl}/share/${id}/`, {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" }
+        method: "GET",
+        headers: { "Authorization": `Bearer ${getToken()}` }
       });
-      if (!res.ok) throw new Error("Failed to share item");
+      if (!res.ok) throw new Error("Failed to load share settings");
       const data = await res.json();
       
       // Dynamically constructs using the active domain (IP or cloud.hanacasa.my)
       const shareUrl = `${window.location.origin}/share/${data.share_token}`;
       
-      setShareModal({ isOpen: true, url: shareUrl });
+      setShareModal({ 
+        isOpen: true, 
+        url: shareUrl,
+        item_id: id,
+        share_mode: data.share_mode || "RESTRICTED",
+        permissions: data.permissions || []
+      });
       setIsCopied(false);
     } catch (error) {
       console.error(error);
-      alert("Failed to generate share link.");
+      alert("Failed to access share settings.");
+    }
+  }
+
+  const saveShareSettings = async (mode: string, perms: {email: string, role: string}[]) => {
+    setIsSavingShare(true);
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api";
+      const res = await fetch(`${baseUrl}/share/${shareModal!.item_id}/`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${getToken()}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ share_mode: mode, permissions: perms })
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to save settings");
+      }
+      setShareModal(prev => prev ? { ...prev, share_mode: mode as any, permissions: perms } : null);
+      setShareEmailInput("");
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setIsSavingShare(false);
     }
   }
 
@@ -544,16 +591,31 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
           </div>
           <div className="flex items-center gap-4">
             {/* Sort Controls */}
-            <div className="flex items-center bg-white/5 border border-white/10 rounded-xl p-1 text-sm shadow-sm backdrop-blur-md">
-              <select 
-                value={sortBy} 
-                onChange={(e) => setSortBy(e.target.value as any)}
-                className="bg-transparent border-none text-white focus:outline-none px-3 py-1.5 cursor-pointer appearance-none font-medium outline-none"
+            <div className="flex items-center bg-white/5 border border-white/10 rounded-xl p-1 text-sm shadow-sm backdrop-blur-md relative" onMouseLeave={() => setIsSortMenuOpen(false)}>
+              <button 
+                onClick={() => setIsSortMenuOpen(!isSortMenuOpen)}
+                className="flex items-center justify-between gap-2 px-3 py-1.5 text-white hover:bg-white/10 rounded-lg transition-colors min-w-[80px]"
               >
-                <option value="name" className="text-black">Name</option>
-                <option value="date" className="text-black">Date</option>
-                <option value="size" className="text-black">Size</option>
-              </select>
+                <span className="capitalize font-medium">{sortBy}</span>
+                <ChevronDown className={cn("w-4 h-4 transition-transform", isSortMenuOpen && "rotate-180")} />
+              </button>
+              
+              {isSortMenuOpen && (
+                <div className="absolute top-full left-0 mt-2 w-32 bg-black/80 backdrop-blur-2xl border border-white/20 shadow-2xl rounded-xl overflow-hidden z-50">
+                  {["name", "date", "size"].map(option => (
+                    <button
+                      key={option}
+                      onClick={() => { setSortBy(option as any); setIsSortMenuOpen(false); }}
+                      className={cn(
+                        "w-full text-left px-4 py-2.5 text-sm capitalize hover:bg-white/10 transition-colors",
+                        sortBy === option ? "text-white font-medium bg-white/5" : "text-white/70"
+                      )}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="w-px h-4 bg-white/20 mx-1" />
               <button 
                 onClick={() => setSortDirection(prev => prev === "asc" ? "desc" : "asc")}
@@ -590,7 +652,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
               ))}
             </div>
             <p className="text-sm text-muted-foreground mt-1">
-              {activeSection === "Trash" ? "Items in trash will be permanently deleted when cleared." : activeSection === "Recent" ? "Your 20 most recently viewed files." : activeSection === "Starred" ? "Your favorite files and folders." : `Welcome back, ${user?.first_name || user?.username}! Here are your files.`}
+              {activeSection === "Trash" ? "Items in trash will be permanently deleted when cleared." : activeSection === "Recent" ? "Your 20 most recently viewed files." : activeSection === "Shared with me" ? "Files and folders shared securely with you." : activeSection === "Starred" ? "Your favorite files and folders." : `Welcome back, ${user?.first_name || user?.username}! Here are your files.`}
             </p>
           </div>
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
@@ -666,7 +728,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
               <Inbox className="w-10 h-10 opacity-50" />
             </div>
             <h3 className="text-xl font-medium text-foreground">No files or folders yet</h3>
-            <p className="text-sm mt-2">{activeSection === "Recent" ? "Open some files to see them here." : activeSection === "Starred" ? "Star files and folders to see them here." : "Upload files or create folders to get started."}</p>
+            <p className="text-sm mt-2">{activeSection === "Recent" ? "Open some files to see them here." : activeSection === "Starred" ? "Star files and folders to see them here." : activeSection === "Shared with me" ? "Nothing has been shared with you yet." : "Upload files or create folders to get started."}</p>
           </div>
         ) : (
           <>
@@ -775,10 +837,11 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                         onRestore={async () => { await api.moveToTrash(file.id, false); loadItems(true); window.dispatchEvent(new Event("storageUpdated")); }}
                         onPermanentDelete={() => requestDelete(file.id, true)}
                         previewUrl={
-                          ['image', 'video'].includes(getPreviewType(file.name) || '')
-                            ? `${process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api"}/download/${file.id}/`
+                          ['image', 'video', 'pdf'].includes(getPreviewType(file.name) || '')
+                            ? `${process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api"}/download/${file.id}/?token=${getToken()}`
                             : undefined
                         }
+                        previewType={getPreviewType(file.name) || undefined}
                       />
                       </div>
                     ))}
@@ -817,10 +880,11 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                           onRestore={async () => { await api.moveToTrash(file.id, false); loadItems(true); window.dispatchEvent(new Event("storageUpdated")); }}
                           onPermanentDelete={() => requestDelete(file.id, true)}
                         previewUrl={
-                          ['image', 'video'].includes(getPreviewType(file.name) || '')
-                            ? `${process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api"}/download/${file.id}/`
+                          ['image', 'video', 'pdf'].includes(getPreviewType(file.name) || '')
+                            ? `${process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api"}/download/${file.id}/?token=${getToken()}`
                             : undefined
                         }
+                        previewType={getPreviewType(file.name) || undefined}
                         />
                         </div>
                       ))}
@@ -1023,7 +1087,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
           <div className="w-full h-full max-w-6xl max-h-[85vh] p-8 flex flex-col items-center justify-center relative">
             {getPreviewType(previewItem.name) === 'image' && (
                <img 
-                 src={`${process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api"}/download/${previewItem.id}/`} 
+                 src={`${process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api"}/download/${previewItem.id}/?token=${getToken()}`} 
                  alt={previewItem.name} 
                  className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
                />
@@ -1032,7 +1096,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                <video 
                  controls 
                  autoPlay
-                 src={`${process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api"}/download/${previewItem.id}/`} 
+                 src={`${process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api"}/download/${previewItem.id}/?token=${getToken()}`} 
                  className="max-w-full max-h-full rounded-lg shadow-2xl bg-black"
                />
             )}
@@ -1045,7 +1109,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                  <audio 
                    controls 
                    autoPlay
-                   src={`${process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api"}/download/${previewItem.id}/`} 
+                   src={`${process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api"}/download/${previewItem.id}/?token=${getToken()}`} 
                    className="w-full"
                  />
                </div>
@@ -1058,25 +1122,85 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
         {shareModal && shareModal.isOpen && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[120] flex items-center justify-center animate-in fade-in">
             <div className="bg-white/10 backdrop-blur-2xl border border-white/20 shadow-[0_0_40px_rgba(0,0,0,0.5)] rounded-3xl w-full max-w-md p-8 animate-in zoom-in-95 text-white">
-              <h3 className="text-2xl font-light tracking-wide mb-3">Share Link Generated</h3>
-              <p className="text-sm text-white/60 mb-6">
-                Anyone with this link can view and download this item.
-              </p>
-              <div className="flex items-center gap-2 mb-8">
-                <input
-                  type="text"
-                  readOnly
-                  value={shareModal.url}
-                  className="w-full bg-white/5 border border-white/20 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-white/50 text-white"
-                />
+              <h3 className="text-2xl font-light tracking-wide mb-6">Share "{currentItems.find(i => i.id === shareModal.item_id)?.name || "Item"}"</h3>
+              
+              {/* Add People */}
+              <div className="mb-6">
+                <label className="block text-xs uppercase tracking-widest text-white/60 mb-2 font-semibold">Share with people</label>
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    value={shareEmailInput}
+                    onChange={(e) => setShareEmailInput(e.target.value)}
+                    placeholder="Enter user email..."
+                    className="flex-1 bg-white/5 border border-white/20 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-white/50 text-white placeholder:text-white/40"
+                  />
+                  <select 
+                    value={shareRoleInput}
+                    onChange={(e) => setShareRoleInput(e.target.value)}
+                    className="bg-white/5 border border-white/20 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none appearance-none cursor-pointer"
+                  >
+                    <option value="VIEWER" className="text-black">Viewer</option>
+                    <option value="EDITOR" className="text-black">Editor</option>
+                  </select>
+                  <button
+                    disabled={!shareEmailInput || isSavingShare}
+                    onClick={() => {
+                      if (!shareEmailInput) return;
+                      const newPerms = [...shareModal.permissions.filter(p => p.email !== shareEmailInput), {email: shareEmailInput, role: shareRoleInput}];
+                      saveShareSettings(shareModal.share_mode, newPerms);
+                    }}
+                    className="px-4 py-2.5 bg-white text-slate-900 rounded-xl text-sm font-semibold disabled:opacity-50 transition-colors hover:bg-white/90"
+                  >
+                    Add
+                  </button>
+                </div>
               </div>
-              <div className="flex justify-end gap-4">
-                <button
-                  onClick={() => setShareModal(null)}
-                  className="px-5 py-2.5 text-sm font-semibold tracking-widest uppercase text-white/60 hover:text-white transition-colors"
-                >
-                  Close
-                </button>
+
+              {/* People with Access */}
+              <div className="mb-8">
+                 <label className="block text-xs uppercase tracking-widest text-white/60 mb-3 font-semibold">People with access</label>
+                 <div className="space-y-3 max-h-32 overflow-y-auto custom-scrollbar">
+                   <div className="flex items-center justify-between text-sm bg-white/5 p-3 rounded-xl border border-white/10">
+                     <span className="truncate flex-1 font-medium">{user?.email || "You"} (Owner)</span>
+                     <span className="text-white/60 text-xs uppercase tracking-widest ml-4">Owner</span>
+                   </div>
+                   {shareModal.permissions.map((p, idx) => (
+                     <div key={idx} className="flex items-center justify-between text-sm bg-white/5 p-3 rounded-xl border border-white/10 group">
+                       <span className="truncate flex-1">{p.email}</span>
+                       <div className="flex items-center gap-3">
+                         <span className="text-white/60 text-xs uppercase tracking-widest">{p.role}</span>
+                         <button 
+                           onClick={() => {
+                             const newPerms = shareModal.permissions.filter(perm => perm.email !== p.email);
+                             saveShareSettings(shareModal.share_mode, newPerms);
+                           }}
+                           className="text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                         >
+                           <X className="w-4 h-4" />
+                         </button>
+                       </div>
+                     </div>
+                   ))}
+                 </div>
+              </div>
+
+              {/* General Access */}
+              <div className="mb-8 p-4 bg-white/5 border border-white/10 rounded-xl">
+                 <label className="block text-xs uppercase tracking-widest text-white/60 mb-2 font-semibold">General Access</label>
+                 <select 
+                    value={shareModal.share_mode}
+                    onChange={(e) => saveShareSettings(e.target.value, shareModal.permissions)}
+                    disabled={isSavingShare}
+                    className="w-full bg-transparent border border-white/20 rounded-lg px-3 py-2 text-sm text-white focus:outline-none appearance-none cursor-pointer"
+                  >
+                    <option value="RESTRICTED" className="text-black">Restricted - Only people added can access</option>
+                    <option value="PUBLIC" className="text-black">Public - Anyone with the link can access</option>
+                  </select>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-between items-center pt-2 border-t border-white/10">
                 <button
                   onClick={async () => {
                     try {
@@ -1096,9 +1220,15 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                       alert("Failed to copy. Please select the link and copy manually.");
                     }
                   }}
-                  className="px-6 py-2.5 bg-white text-slate-900 hover:bg-white/90 rounded-xl text-xs font-bold tracking-widest uppercase transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] min-w-[100px]"
+                  className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold tracking-widest uppercase transition-all border border-white/10"
                 >
-                  {isCopied ? "Copied!" : "Copy"}
+                  {isCopied ? "Copied!" : "Copy Link"}
+                </button>
+                <button
+                  onClick={() => setShareModal(null)}
+                  className="px-8 py-2.5 bg-white text-slate-900 hover:bg-white/90 rounded-xl text-xs font-bold tracking-widest uppercase transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)]"
+                >
+                  Done
                 </button>
               </div>
             </div>

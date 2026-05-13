@@ -41,6 +41,11 @@ class CloudFile(models.Model):
         ('OTHER', 'Other'),
     ]
 
+    SHARE_MODE_CHOICES = [
+        ('RESTRICTED', 'Restricted'),
+        ('PUBLIC', 'Public')
+    ]
+
     parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='children')
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='files')
     file = models.FileField(upload_to=user_directory_path, null=True, blank=True)
@@ -53,6 +58,7 @@ class CloudFile(models.Model):
     updated_at = models.DateTimeField(auto_now=True) # Use auto_now for last modified
     last_viewed_at = models.DateTimeField(null=True, blank=True)
     share_token = models.CharField(max_length=64, unique=True, null=True, blank=True)
+    share_mode = models.CharField(max_length=15, choices=SHARE_MODE_CHOICES, default='RESTRICTED')
 
     class Meta:
         indexes = [
@@ -95,3 +101,12 @@ def auto_delete_file_on_delete(sender, instance, **kwargs):
         full_path = os.path.join(settings.MEDIA_ROOT, f'user_{instance.user.username}', *path_parts)
         if os.path.isdir(full_path):
             shutil.rmtree(full_path, ignore_errors=True)
+
+class FileAccess(models.Model):
+    ROLE_CHOICES = [('VIEWER', 'Viewer'), ('EDITOR', 'Editor')]
+    file = models.ForeignKey(CloudFile, on_delete=models.CASCADE, related_name='access_permissions')
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='VIEWER')
+
+    class Meta:
+        unique_together = ('file', 'user')

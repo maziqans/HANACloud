@@ -21,6 +21,7 @@ interface FileCardProps {
   onDownload?: () => void
   onToggleStar?: () => void
   previewUrl?: string
+  previewType?: string
 }
 
 const fileIcons: Record<string, React.ElementType> = {
@@ -70,7 +71,8 @@ export function FileCard({
   onShare,
   onDownload,
   onToggleStar,
-  previewUrl
+  previewUrl,
+  previewType
 }: FileCardProps) {
   const Icon = fileIcons[type] || fileIcons.default
   const styles = fileStyles[type] || fileStyles.default
@@ -88,9 +90,16 @@ export function FileCard({
     >
       {/* File Icon */}
       <div className="w-full aspect-[4/3] mb-3 flex items-center justify-center">
-        {previewUrl ? (
-          <div className="w-full h-full rounded-xl overflow-hidden bg-black/20 flex items-center justify-center">
-            <img src={previewUrl} alt={name} className="w-full h-full object-cover" />
+        {previewUrl && previewType ? (
+          <div className="w-full h-full rounded-xl overflow-hidden bg-black/20 flex items-center justify-center relative">
+            {previewType === 'image' && <img src={previewUrl} alt={name} className="w-full h-full object-cover" />}
+            {previewType === 'video' && <video src={`${previewUrl}#t=0.1`} className="w-full h-full object-cover" preload="metadata" muted playsInline />}
+            {previewType === 'pdf' && (
+              <>
+                <iframe src={`${previewUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`} className="w-[140%] h-[140%] border-none pointer-events-none" tabIndex={-1} />
+                <div className="absolute inset-0 z-10" />
+              </>
+            )}
           </div>
         ) : (
           <div className={cn("w-14 h-16 rounded-xl flex items-center justify-center", styles.bg)}>

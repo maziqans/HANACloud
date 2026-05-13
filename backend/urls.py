@@ -38,6 +38,8 @@ urlpatterns = [
     path('api/move/', views.move_items),
     path('api/copy/', views.copy_items),
 
+    path('api/shared-with-me/', views.shared_with_me_items),
+
 ]
 
 if settings.DEBUG:

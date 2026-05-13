@@ -66,6 +66,11 @@ export const fetchTrashItems = async () => {
   return response.data;
 }
 
+export const fetchSharedWithMeItems = async () => {
+  const response = await apiClient.get('/shared-with-me/');
+  return response.data;
+}
+
 export const emptyTrash = async () => {
   const response = await apiClient.delete('/trash/empty/');
   return response.data;

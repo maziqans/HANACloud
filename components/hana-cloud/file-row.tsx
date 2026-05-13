@@ -22,6 +22,7 @@ interface FileRowProps {
   onDownload?: () => void
   onToggleStar?: () => void
   previewUrl?: string
+  previewType?: string
 }
 
 const fileIcons: Record<string, React.ElementType> = {
@@ -72,7 +73,8 @@ export function FileRow({
   onShare,
   onDownload,
   onToggleStar,
-  previewUrl
+  previewUrl,
+  previewType
 }: FileRowProps) {
   const Icon = fileIcons[type] || fileIcons.default
   const styles = fileStyles[type] || fileStyles.default
@@ -110,9 +112,16 @@ export function FileRow({
 
       {/* File name with icon */}
       <div className="flex items-center gap-3 min-w-0">
-        {previewUrl ? (
-          <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 bg-black/20">
-            <img src={previewUrl} alt={name} className="w-full h-full object-cover" />
+        {previewUrl && previewType ? (
+          <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 bg-black/20 relative flex items-center justify-center">
+            {previewType === 'image' && <img src={previewUrl} alt={name} className="w-full h-full object-cover" />}
+            {previewType === 'video' && <video src={`${previewUrl}#t=0.1`} className="w-full h-full object-cover" preload="metadata" muted playsInline />}
+            {previewType === 'pdf' && (
+              <>
+                <iframe src={`${previewUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`} className="w-[200%] h-[200%] border-none pointer-events-none" tabIndex={-1} />
+                <div className="absolute inset-0 z-10" />
+              </>
+            )}
           </div>
         ) : (
           <div className={cn("p-2 rounded-lg", styles.bg)}>

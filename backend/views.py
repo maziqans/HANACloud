@@ -74,7 +74,23 @@ def storage_summary(request):
 def drive_items(request):
     parent_id = request.GET.get('parent_id')
     if parent_id and parent_id != 'null':
-        files_qs = CloudFile.objects.filter(user=request.user, parent_id=parent_id, is_trashed=False)
+        parent = get_object_or_404(CloudFile, id=parent_id, is_trashed=False)
+        
+        # Verify if the user owns this folder OR if it was shared with them
+        has_access = False
+        if parent.share_mode == 'PUBLIC' or parent.user == request.user or parent.access_permissions.filter(user=request.user).exists():
+            has_access = True
+        else:
+            curr = parent.parent
+            while curr:
+                if curr.share_mode == 'PUBLIC' or curr.user == request.user or curr.access_permissions.filter(user=request.user).exists():
+                    has_access = True
+                    break
+                curr = curr.parent
+        if not has_access:
+            return Response({"error": "Unauthorized"}, status=403)
+            
+        files_qs = CloudFile.objects.filter(parent=parent, is_trashed=False)
     else:
         files_qs = CloudFile.objects.filter(user=request.user, parent__isnull=True, is_trashed=False)
     
@@ -190,7 +206,7 @@ def toggle_star(request, item_id):
     item.save(update_fields=['is_starred'])
     return Response({"message": f"Item {'starred' if is_starred else 'unstarred'}"})
 
-@api_view(['POST'])
+@api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def share_item(request, item_id):
     import uuid
@@ -198,13 +214,63 @@ def share_item(request, item_id):
     if not item.share_token:
         item.share_token = uuid.uuid4().hex
         item.save(update_fields=['share_token'])
-    return Response({"share_token": item.share_token})
+        
+    if request.method == 'POST':
+        share_mode = request.data.get('share_mode')
+        if share_mode in ['PUBLIC', 'RESTRICTED']:
+            item.share_mode = share_mode
+            item.save(update_fields=['share_mode'])
+        
+        permissions_data = request.data.get('permissions')
+        if permissions_data is not None:
+            users_to_add = []
+            for p in permissions_data:
+                email = p.get('email')
+                if email:
+                    try:
+                        u = User.objects.get(email=email)
+                        users_to_add.append((u, p.get('role', 'VIEWER')))
+                    except User.DoesNotExist:
+                        return Response({"error": f"User with email '{email}' not found. They must have an account."}, status=400)
+            
+            item.access_permissions.all().delete()
+            from core.models import FileAccess
+            for u, role in users_to_add:
+                FileAccess.objects.create(file=item, user=u, role=role)
+    
+    perms = [{"email": p.user.email, "role": p.role} for p in item.access_permissions.all()]
+    return Response({
+        "share_token": item.share_token,
+        "share_mode": item.share_mode,
+        "permissions": perms
+    })
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def shared_item_info(request, token):
     item = get_object_or_404(CloudFile, share_token=token, is_trashed=False)
     
+    # Check Auth
+    auth_token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    auth_user = None
+    if auth_token:
+        from rest_framework_simplejwt.authentication import JWTAuthentication
+        try:
+            validated_token = JWTAuthentication().get_validated_token(auth_token)
+            auth_user = JWTAuthentication().get_user(validated_token)
+        except Exception:
+            pass
+
+    if item.share_mode == 'RESTRICTED':
+        if not auth_user or not auth_user.is_authenticated:
+            return Response({"error": "This item is restricted. Please log in to view it."}, status=401)
+        has_access = (item.user == auth_user) or item.access_permissions.filter(user=auth_user).exists()
+        if not has_access:
+            return Response({"error": "You do not have permission to view this item."}, status=403)
+        user_role = 'OWNER' if item.user == auth_user else item.access_permissions.get(user=auth_user).role
+    else:
+        user_role = 'VIEWER' if not auth_user or not auth_user.is_authenticated or item.user != auth_user else 'OWNER'
+
     data = {
         "id": str(item.id),
         "name": item.name.split('/')[-1] if '/' in item.name else item.name,
@@ -213,6 +279,7 @@ def shared_item_info(request, token):
         "updated_at": item.updated_at.isoformat() if item.updated_at else None,
         "share_token": item.share_token,
         "owner": item.user.first_name or item.user.username,
+        "user_role": user_role,
     }
     
     if item.is_folder:
@@ -229,10 +296,69 @@ def shared_item_info(request, token):
     return Response(data)
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def shared_with_me_items(request):
+    files_qs = CloudFile.objects.filter(
+        access_permissions__user=request.user,
+        is_trashed=False
+    ).annotate(
+        item_count_agg=Count('children', filter=Q(children__is_trashed=False))
+    ).order_by('-is_folder', '-updated_at').values(
+        'id', 'name', 'is_folder', 'file_size', 'updated_at', 'item_count_agg', 'is_starred', 'user__username', 'user__first_name'
+    )
+    
+    data = []
+    for f in files_qs:
+        name = f['name']
+        owner_name = f['user__first_name'] or f['user__username']
+        data.append({
+            "id": str(f['id']),
+            "name": name.split('/')[-1] if '/' in name else name,
+            "item_type": "FOLDER" if f['is_folder'] else "FILE",
+            "size_bytes": f['file_size'],
+            "updated_at": f['updated_at'].isoformat() if f['updated_at'] else None,
+            "item_count": f['item_count_agg'] if f['is_folder'] else 0,
+            "is_starred": f['is_starred'],
+            "owner": owner_name
+        })
+    return Response(data)
+
+@api_view(['GET'])
 @permission_classes([AllowAny]) # Standard HTML anchor links won't pass JWT headers easily
 def download_file(request, file_id):
     cloud_file = get_object_or_404(CloudFile, id=file_id)
     
+    # Authenticate via query token for secure media streaming and downloads
+    token = request.GET.get('token')
+    auth_user = request.user
+    if token:
+        from rest_framework_simplejwt.authentication import JWTAuthentication
+        try:
+            validated_token = JWTAuthentication().get_validated_token(token)
+            auth_user = JWTAuthentication().get_user(validated_token)
+        except Exception:
+            pass
+
+    # Security Access Check
+    has_access = False
+    if cloud_file.share_mode == 'PUBLIC':
+        has_access = True
+    elif auth_user and auth_user.is_authenticated:
+        if cloud_file.user == auth_user or cloud_file.access_permissions.filter(user=auth_user).exists():
+            has_access = True
+            
+    # Inherit access if parent folder is explicitly shared
+    if not has_access:
+        curr = cloud_file.parent
+        while curr:
+            if curr.share_mode == 'PUBLIC' or (auth_user and auth_user.is_authenticated and curr.access_permissions.filter(user=auth_user).exists()):
+                has_access = True
+                break
+            curr = curr.parent
+
+    if not has_access:
+        return Response({"error": "Unauthorized to access this file."}, status=403)
+
     cloud_file.last_viewed_at = timezone.now()
     cloud_file.save(update_fields=['last_viewed_at'])
     

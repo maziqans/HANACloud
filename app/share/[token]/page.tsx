@@ -11,6 +11,7 @@ interface SharedItem {
   size_bytes: number
   updated_at: string
   owner: string
+  user_role?: "VIEWER" | "EDITOR" | "OWNER"
   children?: SharedItem[]
 }
 
@@ -34,9 +35,12 @@ export default function SharedPage() {
     const fetchSharedItem = async () => {
       try {
         const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api"
-        const res = await fetch(`${baseUrl}/shared/${token}/`)
+        const tokenStr = localStorage.getItem("access_token") || localStorage.getItem("token") || "";
+        const headers = tokenStr ? { "Authorization": `Bearer ${tokenStr}` } : {};
+        const res = await fetch(`${baseUrl}/shared/${token}/`, { headers })
         if (!res.ok) throw new Error("This share link is invalid or has expired.")
         const data = await res.json()
+        if (data.error) throw new Error(data.error)
         setItem(data)
       } catch (err: any) {
         setError(err.message)
@@ -49,7 +53,8 @@ export default function SharedPage() {
 
   const handleDownload = (id: string) => {
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api"
-    window.open(`${baseUrl}/download/${id}/`, "_blank")
+    const tokenStr = localStorage.getItem("access_token") || localStorage.getItem("token") || "";
+    window.open(`${baseUrl}/download/${id}/?token=${tokenStr}`, "_blank")
   }
 
   if (loading) {
@@ -64,6 +69,7 @@ export default function SharedPage() {
   }
 
   if (error || !item) {
+    const isAuthError = error.includes("log in") || error.includes("permission");
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-center px-6 relative text-white">
         <div className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat fixed" style={{ backgroundImage: `url('/login-bg.png')` }} />
@@ -71,8 +77,13 @@ export default function SharedPage() {
         <div className="relative z-10 w-20 h-20 bg-red-500/20 text-red-400 border border-red-500/30 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(239,68,68,0.2)]">
           <File className="w-10 h-10" />
         </div>
-        <h1 className="relative z-10 text-3xl font-light tracking-wide mb-2">Item Not Found</h1>
-        <p className="relative z-10 text-white/60">{error}</p>
+        <h1 className="relative z-10 text-3xl font-light tracking-wide mb-2">{isAuthError ? "Access Denied" : "Item Not Found"}</h1>
+        <p className="relative z-10 text-white/60 mb-8">{error}</p>
+        {isAuthError && (
+          <button onClick={() => window.location.href = "/"} className="relative z-10 px-8 py-3.5 bg-white text-slate-900 rounded-xl text-sm font-semibold uppercase tracking-widest shadow-lg">
+            Log In to Verify
+          </button>
+        )}
       </div>
     )
   }
@@ -90,7 +101,7 @@ export default function SharedPage() {
               {item.item_type === "FOLDER" ? <Folder className="w-8 h-8 text-white fill-white/20" /> : <File className="w-8 h-8 text-white fill-white/20" />}
               <h1 className="text-3xl font-light tracking-wide text-white truncate max-w-lg">{item.name}</h1>
             </div>
-            <p className="text-white/60">Shared securely by <span className="font-medium text-white">{item.owner}</span> • {item.item_type === "FOLDER" ? `${item.children?.length} items` : formatBytes(item.size_bytes)}</p>
+            <p className="text-white/60">Shared securely by <span className="font-medium text-white">{item.owner}</span> • {item.user_role && <span className="text-white bg-white/10 px-2 py-0.5 rounded text-xs ml-1">{item.user_role}</span>} • {item.item_type === "FOLDER" ? `${item.children?.length} items` : formatBytes(item.size_bytes)}</p>
           </div>
           
           {item.item_type === "FILE" && (
