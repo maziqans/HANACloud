@@ -7,7 +7,7 @@ import { ViewToggle } from "./view-toggle"
 import { FolderCard } from "./folder-card"
 import { FileCard } from "./file-card"
 import { FileRow } from "./file-row"
-import { Inbox, CheckCircle2, Loader2, MoreHorizontal, ChevronRight, ChevronDown, Star, Upload, X, Download, ArrowUp, ArrowDown, Play, Bell, ShieldAlert } from "lucide-react"
+import { Inbox, CheckCircle2, Loader2, MoreHorizontal, ChevronRight, ChevronDown, Star, Upload, X, Download, ArrowUp, ArrowDown, Play, Bell, ShieldAlert, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export interface CloudItem {
@@ -110,6 +110,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
   } | null>(null);
   const [pickerFolders, setPickerFolders] = useState<CloudItem[]>([]);
   const [isPickerLoading, setIsPickerLoading] = useState(false);
+  const [pickerHasFiles, setPickerHasFiles] = useState(false);
 
   const getToken = () => typeof window !== "undefined" ? (localStorage.getItem("access_token") || localStorage.getItem("token") || "") : "";
   
@@ -120,6 +121,14 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
     action: () => Promise<void>;
     confirmText: string;
   } | null>(null);
+  
+  const [duplicateConfirm, setDuplicateConfirm] = useState<{
+    isOpen: boolean;
+    filename: string;
+    resolve: (value: boolean) => void;
+  } | null>(null);
+  
+  const [genericAlert, setGenericAlert] = useState<{ title: string; message: string; } | null>(null);
 
   const [prevSection, setPrevSection] = useState(activeSection);
 
@@ -181,6 +190,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
           const data = await api.fetchItems(folderPicker.currentFolderId);
           if (Array.isArray(data)) {
             setPickerFolders(data.filter(item => item.item_type === "FOLDER"));
+            setPickerHasFiles(data.some(item => item.item_type === "FILE"));
           }
         } catch (err) {
           console.error(err);
@@ -303,7 +313,11 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
       let skip = false
 
       if (existingNames.includes(finalName)) {
-        if (window.confirm(`"${finalName}" already exists. Save as duplicate?`)) {
+        const keep = await new Promise<boolean>((resolve) => {
+          setDuplicateConfirm({ isOpen: true, filename: finalName, resolve });
+        });
+        setDuplicateConfirm(null);
+        if (keep) {
           finalName = getUniqueFilename(finalName, existingNames)
           existingNames.push(finalName)
         } else {
@@ -498,7 +512,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
       setIsCopied(false);
     } catch (error) {
       console.error(error);
-      alert("Failed to access share settings. Make sure your database migrations are applied!");
+      setGenericAlert({ title: "Server Error", message: "Failed to access share settings. Make sure your database migrations are applied!" });
     }
   }
 
@@ -512,7 +526,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
       setEmailSuggestions([]);
       setShowSuggestions(false);
     } catch (e: any) {
-      alert(e.message);
+      setGenericAlert({ title: "Action Failed", message: e.message });
     } finally {
       setIsSavingShare(false);
     }
@@ -564,7 +578,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
       await loadItems(true);
       window.dispatchEvent(new Event("storageUpdated"));
     } catch (err: any) {
-      alert(err.message);
+      setGenericAlert({ title: "Action Failed", message: err.message });
     }
   }
 
@@ -889,7 +903,8 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                         onPermanentDelete={() => requestDelete(folder.id, true)}
                         onShare={() => handleShare(folder.id)}
                         canEdit={folder.can_edit !== false}
-                        onDownload={() => alert("Downloading entire folders coming soon!")}
+                        onDownload={() => setGenericAlert({ title: "Coming Soon", message: "Downloading entire folders is not currently supported." })}
+                        onDownload={() => setGenericAlert({ title: "Coming Soon", message: "Downloading entire folders is not currently supported." })}
                       />
                       </div>
                     ))}
@@ -1083,6 +1098,32 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                 className="px-6 py-2.5 bg-red-500 text-white hover:bg-red-400 rounded-xl text-xs font-bold tracking-widest uppercase transition-all shadow-[0_0_20px_rgba(239,68,68,0.2)] hover:shadow-[0_0_30px_rgba(239,68,68,0.4)]"
               >
                 {confirmAction.confirmText}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Duplicate File Modal */}
+      {duplicateConfirm && duplicateConfirm.isOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[120] flex items-center justify-center animate-in fade-in duration-500">
+          <div className="bg-white/10 backdrop-blur-2xl border border-white/20 shadow-[0_0_40px_rgba(0,0,0,0.5)] rounded-3xl w-full max-w-md p-8 animate-in zoom-in-95 text-white">
+            <h3 className="text-2xl font-light tracking-wide mb-4">File Already Exists</h3>
+            <p className="text-sm text-white/70 mb-8 leading-relaxed">
+              "{duplicateConfirm.filename}" already exists in this folder. Would you like to save it as a duplicate or skip this file?
+            </p>
+            <div className="flex justify-end gap-4">
+              <button 
+                onClick={() => duplicateConfirm.resolve(false)}
+                className="px-5 py-2.5 text-sm font-semibold tracking-widest uppercase text-white/60 hover:text-white transition-colors"
+              >
+                Skip
+              </button>
+              <button 
+                onClick={() => duplicateConfirm.resolve(true)}
+                className="px-6 py-2.5 bg-white text-slate-900 hover:bg-white/90 rounded-xl text-xs font-bold tracking-widest uppercase transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)]"
+              >
+                Save as Duplicate
               </button>
             </div>
           </div>
@@ -1420,7 +1461,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                 </div>
               ) : pickerFolders.length === 0 ? (
                 <div className="text-center text-white/40 py-8 text-sm italic">
-                  This folder is empty
+                  {pickerHasFiles ? "No subfolders inside" : "This folder is empty"}
                 </div>
               ) : (
                 <div className="space-y-1">
@@ -1479,6 +1520,27 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
               className="w-full px-6 py-3 bg-white text-slate-900 hover:bg-white/90 rounded-xl text-xs font-bold tracking-widest uppercase transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)]"
             >
               Okay
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Generic Error / Info Modal */}
+      {genericAlert && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[140] flex items-center justify-center animate-in fade-in duration-500">
+          <div className="bg-white/10 backdrop-blur-2xl border border-white/20 shadow-[0_0_40px_rgba(0,0,0,0.5)] rounded-3xl w-full max-w-sm p-8 animate-in zoom-in-95 duration-500 text-white text-center">
+            <div className="w-16 h-16 bg-white/10 text-white border border-white/20 rounded-full flex items-center justify-center mx-auto mb-6">
+              <AlertCircle className="w-8 h-8" />
+            </div>
+            <h3 className="text-2xl font-light tracking-wide mb-3">{genericAlert.title}</h3>
+            <p className="text-sm text-white/60 mb-8 leading-relaxed">
+              {genericAlert.message}
+            </p>
+            <button 
+              onClick={() => setGenericAlert(null)}
+              className="w-full px-6 py-3 bg-white text-slate-900 hover:bg-white/90 rounded-xl text-xs font-bold tracking-widest uppercase transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)]"
+            >
+              Close
             </button>
           </div>
         </div>

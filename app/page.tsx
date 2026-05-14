@@ -5,7 +5,7 @@ import { Sidebar } from "@/components/hana-cloud/sidebar"
 import { MainContent } from "@/components/hana-cloud/main-content"
 import { SettingsContent } from "@/components/hana-cloud/settings-content"
 import * as api from "@/lib/api"
-import { Cloud } from "lucide-react"
+import { Cloud, AlertCircle } from "lucide-react"
 
 export default function HANACloudPage() {
   const [activeSection, setActiveSection] = useState("My Drive")
@@ -15,6 +15,7 @@ export default function HANACloudPage() {
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [isLoggingIn, setIsLoggingIn] = useState(false)
+  const [loginError, setLoginError] = useState<string | null>(null)
 
   const isSettings = ["Profile Settings", "Storage Management", "Security Settings", "Settings"].includes(activeSection)
 
@@ -56,7 +57,8 @@ export default function HANACloudPage() {
         window.location.href = params.get('redirect') as string;
       }
     } catch (err) {
-      alert("Invalid credentials. Please try again.");
+      setLoginError("Invalid credentials. Please try again.");
+      setTimeout(() => setLoginError(null), 4000);
     } finally {
       setIsLoggingIn(false);
     }
@@ -98,6 +100,13 @@ export default function HANACloudPage() {
 
           {/* Form Section */}
           <form onSubmit={handleLogin} className="space-y-8">
+            {loginError && (
+              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 animate-in fade-in text-red-400 text-xs">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{loginError}</span>
+              </div>
+            )}
+
             <div className="space-y-2 group">
               <label className="block text-[10px] font-semibold text-white/60 uppercase tracking-widest transition-colors group-focus-within:text-white">
                 Username
