@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import * as api from "@/lib/api"
 import { SearchBar } from "./search-bar"
 import { ViewToggle } from "./view-toggle"
@@ -129,7 +129,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
     setSelectedItems(new Set());
   }
   
-  const currentFolderCanEdit = React.useMemo(() => {
+  const currentFolderCanEdit = useMemo(() => {
     if (activeSection === "Trash" || activeSection === "Recent" || activeSection === "Starred") return false;
     if (activeSection === "Shared with me" && !currentParentId) return false;
     if (currentParentId && navStack.length > 0) return navStack[navStack.length - 1].can_edit;
