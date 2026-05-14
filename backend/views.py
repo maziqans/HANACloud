@@ -65,8 +65,17 @@ def profile_settings(request):
     # Handle password change
     if 'password' in request.data and request.data['password']:
         user.set_password(request.data['password'])
-        user.save()
         
+    # Handle basic info change
+    if 'first_name' in request.data:
+        user.first_name = request.data['first_name']
+    if 'last_name' in request.data:
+        user.last_name = request.data['last_name']
+    if 'email' in request.data:
+        user.email = request.data['email']
+        
+    user.save()
+
     return Response({"message": "Profile updated successfully"})
 
 @api_view(['GET'])

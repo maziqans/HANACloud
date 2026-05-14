@@ -8,25 +8,38 @@ import { StorageBreakdown } from "./storage-breakdown"
 export function SettingsContent({ user, onUpdate, activeSection = "Profile Settings" }: { user?: any, onUpdate?: () => void, activeSection?: string }) {
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
+  const [firstName, setFirstName] = useState(user?.first_name || "")
+  const [lastName, setLastName] = useState(user?.last_name || "")
+  const [email, setEmail] = useState(user?.email || "")
+
+  useEffect(() => {
+    setFirstName(user?.first_name || "")
+    setLastName(user?.last_name || "")
+    setEmail(user?.email || "")
+  }, [user])
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (password !== confirmPassword) return alert("Passwords do not match!")
+    if (password && password !== confirmPassword) return alert("Passwords do not match!")
     try {
       const formData = new FormData()
       if (password) formData.append("password", password)
+      formData.append("first_name", firstName)
+      formData.append("last_name", lastName)
+      formData.append("email", email)
+      
       await api.updateProfile(formData)
       alert("Profile updated successfully")
       setPassword("")
       setConfirmPassword("")
+      onUpdate?.() // Tell the main app to fetch the new name/email
     } catch (error) {
       console.error(error)
     }
   }
 
   const handleStorageRequest = async () => {
-    // You can change this phone number to your own WhatsApp number
-    const phoneNumber = "15551234567";
+    const phoneNumber = "60123408219";
     const message = "I would like to request additional storage for my HANACloud account.";
     const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
@@ -99,6 +112,20 @@ export function SettingsContent({ user, onUpdate, activeSection = "Profile Setti
                   )}
                 </div>
               </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2 text-muted-foreground">First Name</label>
+                <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="First Name" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2 text-muted-foreground">Last Name</label>
+                <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Last Name" />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2 text-muted-foreground">Email Address</label>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Email Address" />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
