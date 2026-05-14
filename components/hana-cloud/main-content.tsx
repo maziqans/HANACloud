@@ -7,7 +7,7 @@ import { ViewToggle } from "./view-toggle"
 import { FolderCard } from "./folder-card"
 import { FileCard } from "./file-card"
 import { FileRow } from "./file-row"
-import { Inbox, CheckCircle2, Loader2, MoreHorizontal, ChevronRight, ChevronDown, Star, Upload, X, Download, ArrowUp, ArrowDown, Play, Bell } from "lucide-react"
+import { Inbox, CheckCircle2, Loader2, MoreHorizontal, ChevronRight, ChevronDown, Star, Upload, X, Download, ArrowUp, ArrowDown, Play, Bell, ShieldAlert } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export interface CloudItem {
@@ -97,6 +97,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
   const [openRoleMenuId, setOpenRoleMenuId] = useState<string | null>(null)
   
   const [isCopied, setIsCopied] = useState(false)
+  const [permissionWarning, setPermissionWarning] = useState(false)
   const [isSortMenuOpen, setIsSortMenuOpen] = useState(false)
   const [pendingRequests, setPendingRequests] = useState<any[]>([])
   const [showRequests, setShowRequests] = useState(false)
@@ -206,6 +207,12 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
   useEffect(() => {
     const interval = setInterval(fetchRequests, 10000); // Poll for access requests every 10 seconds
     return () => clearInterval(interval);
+  }, [])
+
+  useEffect(() => {
+    const handlePermissionWarning = () => setPermissionWarning(true)
+    window.addEventListener("showPermissionWarning", handlePermissionWarning)
+    return () => window.removeEventListener("showPermissionWarning", handlePermissionWarning)
   }, [])
 
   useEffect(() => {
@@ -382,7 +389,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!currentFolderCanEdit) {
-      alert("You don't have the permission to edit this folder.");
+      window.dispatchEvent(new Event('showPermissionWarning'));
       return;
     }
     if (!e.target.files?.length) return
@@ -397,7 +404,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
     // Disable dragging directly into the trash
     if (activeSection === "Trash") return
     if (!currentFolderCanEdit) {
-      alert("You don't have the permission to edit this folder.");
+      window.dispatchEvent(new Event('showPermissionWarning'));
       return;
     }
 
@@ -1452,6 +1459,27 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                 {folderPicker.action} Here
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Permission Warning Modal */}
+      {permissionWarning && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[130] flex items-center justify-center animate-in fade-in duration-500">
+          <div className="bg-white/10 backdrop-blur-2xl border border-white/20 shadow-[0_0_40px_rgba(0,0,0,0.5)] rounded-3xl w-full max-w-sm p-8 animate-in zoom-in-95 duration-500 text-white text-center">
+            <div className="w-16 h-16 bg-red-500/20 text-red-400 border border-red-500/30 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_rgba(239,68,68,0.2)]">
+              <ShieldAlert className="w-8 h-8" />
+            </div>
+            <h3 className="text-2xl font-light tracking-wide mb-3">Access Denied</h3>
+            <p className="text-sm text-white/60 mb-8 leading-relaxed">
+              You don't have the permission to edit or upload files to this folder.
+            </p>
+            <button 
+              onClick={() => setPermissionWarning(false)}
+              className="w-full px-6 py-3 bg-white text-slate-900 hover:bg-white/90 rounded-xl text-xs font-bold tracking-widest uppercase transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)]"
+            >
+              Okay
+            </button>
           </div>
         </div>
       )}

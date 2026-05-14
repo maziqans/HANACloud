@@ -126,7 +126,7 @@ export function Sidebar({ onNavigate, activeItem = "My Drive", user, onLogout }:
                 <button 
                   onClick={() => { 
                     setDropdownOpen(false); 
-                    if (!canEdit) { alert("You don't have the permission to edit this folder."); return; }
+                    if (!canEdit) { window.dispatchEvent(new Event('showPermissionWarning')); return; }
                     window.dispatchEvent(new Event('createFolder')) 
                   }}
                   className={cn("w-full px-4 py-3 flex items-center gap-3 transition-colors text-left", !canEdit ? "opacity-50 text-sidebar-muted" : "text-sidebar-foreground hover:bg-sidebar-accent")}
@@ -139,7 +139,7 @@ export function Sidebar({ onNavigate, activeItem = "My Drive", user, onLogout }:
                 <button 
                   onClick={() => { 
                     setDropdownOpen(false); 
-                    if (!canEdit) { alert("You don't have the permission to edit this folder."); return; }
+                    if (!canEdit) { window.dispatchEvent(new Event('showPermissionWarning')); return; }
                     document.getElementById('file-upload')?.click() 
                   }}
                   className={cn("w-full px-4 py-3 flex items-center gap-3 transition-colors text-left", !canEdit ? "opacity-50 text-sidebar-muted" : "text-sidebar-foreground hover:bg-sidebar-accent")}
@@ -152,7 +152,7 @@ export function Sidebar({ onNavigate, activeItem = "My Drive", user, onLogout }:
                 <button 
                   onClick={() => { 
                     setDropdownOpen(false); 
-                    if (!canEdit) { alert("You don't have the permission to edit this folder."); return; }
+                    if (!canEdit) { window.dispatchEvent(new Event('showPermissionWarning')); return; }
                     document.getElementById('folder-upload')?.click() 
                   }}
                   className={cn("w-full px-4 py-3 flex items-center gap-3 transition-colors text-left", !canEdit ? "opacity-50 text-sidebar-muted" : "text-sidebar-foreground hover:bg-sidebar-accent")}

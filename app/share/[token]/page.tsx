@@ -82,7 +82,7 @@ export default function SharedPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white/60 relative">
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white/60 relative animate-in fade-in duration-700">
         <div className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat fixed" style={{ backgroundImage: `url('/login-bg.png')` }} />
         <div className="absolute inset-0 z-0 bg-gradient-to-b from-black/60 via-black/70 to-black/90 fixed" />
         <Loader2 className="w-10 h-10 animate-spin text-white mb-4 relative z-10" />
@@ -93,7 +93,7 @@ export default function SharedPage() {
 
   if (requestStatus) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-center px-6 relative text-white">
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-center px-6 relative text-white animate-in fade-in duration-700">
         <div className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat fixed" style={{ backgroundImage: `url('/login-bg.png')` }} />
         <div className="absolute inset-0 z-0 bg-gradient-to-b from-black/60 via-black/70 to-black/90 fixed" />
         <div className="relative z-10 w-20 h-20 bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(234,179,8,0.2)]">
@@ -123,7 +123,7 @@ export default function SharedPage() {
   if (error || !item) {
     const isAuthError = error.includes("log in") || error.includes("permission");
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-center px-6 relative text-white">
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-center px-6 relative text-white animate-in fade-in duration-700">
         <div className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat fixed" style={{ backgroundImage: `url('/login-bg.png')` }} />
         <div className="absolute inset-0 z-0 bg-gradient-to-b from-black/60 via-black/70 to-black/90 fixed" />
         <div className="relative z-10 w-20 h-20 bg-red-500/20 text-red-400 border border-red-500/30 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(239,68,68,0.2)]">
@@ -141,47 +141,49 @@ export default function SharedPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 p-6 md:p-12 flex justify-center items-start pt-20 relative text-white font-serif">
+    <div className="min-h-screen bg-slate-950 p-6 md:p-12 flex justify-center items-start pt-20 relative text-white font-serif animate-in fade-in duration-700">
       {/* Background Image & Overlay */}
       <div className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat fixed" style={{ backgroundImage: `url('/login-bg.png')` }} />
       <div className="absolute inset-0 z-0 bg-gradient-to-b from-black/60 via-black/70 to-black/90 fixed" />
 
       <div className="relative z-10 w-full max-w-4xl bg-white/5 backdrop-blur-2xl border border-white/10 shadow-2xl rounded-3xl overflow-hidden animate-in slide-in-from-bottom-5">
         <div className="p-8 md:p-12 border-b border-white/10 bg-white/5 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div>
+          <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 mb-2">
-              {item.item_type === "FOLDER" ? <Folder className="w-8 h-8 text-white fill-white/20" /> : <File className="w-8 h-8 text-white fill-white/20" />}
+              {item.item_type === "FOLDER" ? <Folder className="w-8 h-8 text-white fill-white/20 shrink-0" /> : <File className="w-8 h-8 text-white fill-white/20 shrink-0" />}
               <h1 className="text-3xl font-light tracking-wide text-white truncate max-w-lg">{item.name}</h1>
             </div>
             <p className="text-white/60">Shared securely by <span className="font-medium text-white">{item.owner}</span> • {item.user_role && item.user_role !== "PUBLIC_VIEWER" && <span className="text-white bg-white/10 px-2 py-0.5 rounded text-xs ml-1">{item.user_role}</span>} • {item.item_type === "FOLDER" ? `${item.children?.length} items` : formatBytes(item.size_bytes)}</p>
           </div>
           
-          {typeof window !== "undefined" && !localStorage.getItem("access_token") ? (
-            <button onClick={() => window.location.href = `/?redirect=${encodeURIComponent(window.location.pathname)}`} className="px-6 py-3 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-xl text-xs font-semibold uppercase tracking-widest transition-colors shadow-lg w-full md:w-auto text-center">
-              Log in to save to Shared with me
-            </button>
-          ) : !item.is_saved && (
-            <button onClick={async () => {
-              const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api";
-              const tokenStr = localStorage.getItem("access_token") || localStorage.getItem("token") || "";
-              try {
-                const res = await fetch(`${baseUrl}/shared/${token}/save/`, { method: "POST", headers: { "Authorization": `Bearer ${tokenStr}` }});
-                if (res.ok) {
-                  setItem({...item, is_saved: true, user_role: "VIEWER"});
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full md:w-auto shrink-0 mt-4 md:mt-0">
+            {typeof window !== "undefined" && !localStorage.getItem("access_token") ? (
+              <button onClick={() => window.location.href = `/?redirect=${encodeURIComponent(window.location.pathname)}`} className="px-6 py-3 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-xl text-xs font-semibold uppercase tracking-widest transition-colors shadow-lg w-full sm:w-auto text-center">
+                Log in to save
+              </button>
+            ) : !item.is_saved && (
+              <button onClick={async () => {
+                const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api";
+                const tokenStr = localStorage.getItem("access_token") || localStorage.getItem("token") || "";
+                try {
+                  const res = await fetch(`${baseUrl}/shared/${token}/save/`, { method: "POST", headers: { "Authorization": `Bearer ${tokenStr}` }});
+                  if (res.ok) {
+                    setItem({...item, is_saved: true, user_role: "VIEWER"});
+                  }
+                } catch (e) {
+                  console.error("Failed to save item.");
                 }
-              } catch (e) {
-                console.error("Failed to save item.");
-              }
-            }} className="px-6 py-3 bg-white text-slate-900 hover:bg-white/90 rounded-xl text-xs font-bold uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] w-full md:w-auto text-center">
-              Save to Shared with me
-            </button>
-          )}
+              }} className="px-6 py-3 bg-white text-slate-900 hover:bg-white/90 rounded-xl text-xs font-bold uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] w-full sm:w-auto text-center whitespace-nowrap">
+                Save to Shared with me
+              </button>
+            )}
 
-          {item.item_type === "FILE" && (
-            <button onClick={() => handleDownload(item.id)} className="px-8 py-3.5 bg-white hover:bg-white/90 text-slate-900 rounded-xl font-semibold uppercase tracking-widest text-xs transition-colors shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] flex items-center gap-3 w-full md:w-auto justify-center">
-              <Download className="w-5 h-5" /> Download File
-            </button>
-          )}
+            {item.item_type === "FILE" && (
+              <button onClick={() => handleDownload(item.id)} className="px-8 py-3.5 bg-white hover:bg-white/90 text-slate-900 rounded-xl font-semibold uppercase tracking-widest text-xs transition-colors shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] flex items-center justify-center gap-3 w-full sm:w-auto whitespace-nowrap">
+                <Download className="w-5 h-5" /> Download File
+              </button>
+            )}
+          </div>
         </div>
 
         {item.item_type === "FILE" && (

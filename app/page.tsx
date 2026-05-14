@@ -72,7 +72,7 @@ export default function HANACloudPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center relative bg-slate-950 overflow-hidden font-sans">
+      <div className="min-h-screen flex items-center justify-center relative bg-slate-950 overflow-hidden font-sans animate-in fade-in duration-700">
         {/* Background Image with a subtle zoom-in animation for a premium feel */}
         <div 
           className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat animate-in zoom-in duration-1000"
