@@ -37,6 +37,16 @@ def current_user(request):
         "avatar_url": avatar_url,
     })
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def search_users(request):
+    query = request.GET.get('q', '')
+    if len(query) < 2:
+        return Response([])
+    users = User.objects.filter(email__icontains=query).exclude(id=request.user.id)[:10]
+    data = [{"email": u.email, "name": f"{u.first_name} {u.last_name}".strip() or u.username} for u in users]
+    return Response(data)
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def profile_settings(request):

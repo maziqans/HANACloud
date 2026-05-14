@@ -13,6 +13,7 @@ urlpatterns = [
     
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/users/me/', views.current_user, name='current_user'),
+    path('api/users/search/', views.search_users, name='search_users'),
     
     path('api/drive/', views.drive_items, name='drive_items'),
     path('api/drive/<int:item_id>/', views.move_to_trash, name='move_to_trash'),
