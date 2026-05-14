@@ -11,7 +11,8 @@ interface SharedItem {
   size_bytes: number
   updated_at: string
   owner: string
-  user_role?: "VIEWER" | "EDITOR" | "OWNER"
+  user_role?: "VIEWER" | "EDITOR" | "OWNER" | "PUBLIC_VIEWER"
+  is_saved?: boolean
   children?: SharedItem[]
 }
 
@@ -152,12 +153,27 @@ export default function SharedPage() {
               {item.item_type === "FOLDER" ? <Folder className="w-8 h-8 text-white fill-white/20" /> : <File className="w-8 h-8 text-white fill-white/20" />}
               <h1 className="text-3xl font-light tracking-wide text-white truncate max-w-lg">{item.name}</h1>
             </div>
-            <p className="text-white/60">Shared securely by <span className="font-medium text-white">{item.owner}</span> • {item.user_role && <span className="text-white bg-white/10 px-2 py-0.5 rounded text-xs ml-1">{item.user_role}</span>} • {item.item_type === "FOLDER" ? `${item.children?.length} items` : formatBytes(item.size_bytes)}</p>
+            <p className="text-white/60">Shared securely by <span className="font-medium text-white">{item.owner}</span> • {item.user_role && item.user_role !== "PUBLIC_VIEWER" && <span className="text-white bg-white/10 px-2 py-0.5 rounded text-xs ml-1">{item.user_role}</span>} • {item.item_type === "FOLDER" ? `${item.children?.length} items` : formatBytes(item.size_bytes)}</p>
           </div>
           
-          {typeof window !== "undefined" && !localStorage.getItem("access_token") && (
+          {typeof window !== "undefined" && !localStorage.getItem("access_token") ? (
             <button onClick={() => window.location.href = `/?redirect=${encodeURIComponent(window.location.pathname)}`} className="px-6 py-3 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-xl text-xs font-semibold uppercase tracking-widest transition-colors shadow-lg w-full md:w-auto text-center">
               Log in to save to Shared with me
+            </button>
+          ) : !item.is_saved && (
+            <button onClick={async () => {
+              const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api";
+              const tokenStr = localStorage.getItem("access_token") || localStorage.getItem("token") || "";
+              try {
+                const res = await fetch(`${baseUrl}/shared/${token}/save/`, { method: "POST", headers: { "Authorization": `Bearer ${tokenStr}` }});
+                if (res.ok) {
+                  setItem({...item, is_saved: true, user_role: "VIEWER"});
+                }
+              } catch (e) {
+                console.error("Failed to save item.");
+              }
+            }} className="px-6 py-3 bg-white text-slate-900 hover:bg-white/90 rounded-xl text-xs font-bold uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] w-full md:w-auto text-center">
+              Save to Shared with me
             </button>
           )}
 

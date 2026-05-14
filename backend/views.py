@@ -11,7 +11,7 @@ from django.contrib.auth.models import User
 
 def check_edit_access(user, folder):
     """Helper to check if a user is allowed to modify files inside a target folder."""
-    if not folder: return True
+    if not folder: return False # Never allow modifying someone else's absolute root drive
     if folder.user == user: return True
     if folder.share_mode == 'PUBLIC': return True
     
@@ -124,12 +124,18 @@ def drive_items(request):
     files_qs = files_qs.annotate(
         item_count_agg=Count('children', filter=Q(children__is_trashed=False))
     ).order_by('-is_folder', '-updated_at').values(
-        'id', 'name', 'is_folder', 'file_size', 'updated_at', 'item_count_agg', 'is_starred'
+        'id', 'name', 'is_folder', 'file_size', 'updated_at', 'item_count_agg', 'is_starred', 'user_id', 'share_mode'
     )
     
+    editor_accessible_ids = set(FileAccess.objects.filter(user=request.user, role='EDITOR').values_list('file_id', flat=True))
+    can_edit_parent = True
+    if parent_id and parent_id != 'null':
+        can_edit_parent = check_edit_access(request.user, parent)
+        
     data = []
     for f in files_qs:
         name = f['name']
+        item_can_edit = can_edit_parent or (f['user_id'] == request.user.id) or (f['share_mode'] == 'PUBLIC') or (f['id'] in editor_accessible_ids)
         data.append({
             "id": str(f['id']),
             "name": name.split('/')[-1] if '/' in name else name,
@@ -137,7 +143,8 @@ def drive_items(request):
             "size_bytes": f['file_size'],
             "updated_at": f['updated_at'].isoformat() if f['updated_at'] else None,
             "item_count": f['item_count_agg'] if f['is_folder'] else 0,
-            "is_starred": f['is_starred']
+            "is_starred": f['is_starred'],
+            "can_edit": item_can_edit
         })
     return Response(data)
 
@@ -147,7 +154,7 @@ def upload_files(request):
     parent_id = request.data.get('parent_id')
     parent = None
     if parent_id and parent_id != 'null':
-        parent = get_object_or_404(CloudFile, id=parent_id, user=request.user)
+        parent = get_object_or_404(CloudFile, id=parent_id)
         if not check_edit_access(request.user, parent):
             return Response({"error": "You do not have editor permission for this folder"}, status=403)
         
@@ -231,7 +238,7 @@ def create_folder(request):
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
 def toggle_star(request, item_id):
-    item = get_object_or_404(CloudFile, id=item_id, user=request.user)
+    item = get_object_or_404(CloudFile, id=item_id)
     is_starred = request.data.get('is_starred', True)
     item.is_starred = is_starred
     item.save(update_fields=['is_starred'])
@@ -304,9 +311,14 @@ def shared_item_info(request, token):
             
         user_role = 'OWNER' if item.user == auth_user else item.access_permissions.get(user=auth_user).role
     else:
-        user_role = 'VIEWER' if not auth_user or not auth_user.is_authenticated or item.user != auth_user else 'OWNER'
-        if auth_user and auth_user.is_authenticated and item.user != auth_user:
-            FileAccess.objects.get_or_create(file=item, user=auth_user, defaults={'role': 'VIEWER'})
+        if auth_user and auth_user.is_authenticated:
+            if item.user == auth_user:
+                user_role = 'OWNER'
+            else:
+                has_access = item.access_permissions.filter(user=auth_user).exists()
+                user_role = 'VIEWER' if has_access else 'PUBLIC_VIEWER'
+        else:
+            user_role = 'PUBLIC_VIEWER'
 
     data = {
         "id": str(item.id),
@@ -317,6 +329,7 @@ def shared_item_info(request, token):
         "share_token": item.share_token,
         "owner": item.user.first_name or item.user.username,
         "user_role": user_role,
+        "is_saved": user_role in ['VIEWER', 'EDITOR', 'OWNER'],
     }
     
     if item.is_folder:
@@ -341,13 +354,16 @@ def shared_with_me_items(request):
     ).annotate(
         item_count_agg=Count('children', filter=Q(children__is_trashed=False))
     ).order_by('-is_folder', '-updated_at').values(
-        'id', 'name', 'is_folder', 'file_size', 'updated_at', 'item_count_agg', 'is_starred', 'user__username', 'user__first_name'
+        'id', 'name', 'is_folder', 'file_size', 'updated_at', 'item_count_agg', 'is_starred', 'user__username', 'user__first_name', 'user_id', 'share_mode'
     )
+    
+    editor_accessible_ids = set(FileAccess.objects.filter(user=request.user, role='EDITOR').values_list('file_id', flat=True))
     
     data = []
     for f in files_qs:
         name = f['name']
         owner_name = f['user__first_name'] or f['user__username']
+        item_can_edit = (f['user_id'] == request.user.id) or (f['share_mode'] == 'PUBLIC') or (f['id'] in editor_accessible_ids)
         data.append({
             "id": str(f['id']),
             "name": name.split('/')[-1] if '/' in name else name,
@@ -356,9 +372,18 @@ def shared_with_me_items(request):
             "updated_at": f['updated_at'].isoformat() if f['updated_at'] else None,
             "item_count": f['item_count_agg'] if f['is_folder'] else 0,
             "is_starred": f['is_starred'],
-            "owner": owner_name
+            "owner": owner_name,
+            "can_edit": item_can_edit
         })
     return Response(data)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def save_shared_item(request, token):
+    item = get_object_or_404(CloudFile, share_token=token, is_trashed=False)
+    if item.share_mode == 'PUBLIC' and item.user != request.user:
+        FileAccess.objects.get_or_create(file=item, user=request.user, defaults={'role': 'VIEWER'})
+    return Response({"message": "Saved successfully"})
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -483,8 +508,16 @@ def download_file(request, file_id):
 @permission_classes([IsAuthenticated])
 def move_to_trash(request, item_id):
     item = get_object_or_404(CloudFile, id=item_id)
-    if item.user != request.user and not check_edit_access(request.user, item.parent):
-        return Response({"error": "No permission to delete"}, status=403)
+    if item.user != request.user:
+        has_edit = False
+        accessible_ids = set(FileAccess.objects.filter(user=request.user, role='EDITOR').values_list('file_id', flat=True))
+        if item.id in accessible_ids:
+            has_edit = True
+        elif check_edit_access(request.user, item.parent):
+            has_edit = True
+            
+        if not has_edit:
+            return Response({"error": "No permission to delete"}, status=403)
         
     is_trashed = request.data.get('is_trashed', True)
     
@@ -571,9 +604,11 @@ def move_items(request):
     
     target_parent = None
     if target_parent_id and target_parent_id != 'null':
-        target_parent = get_object_or_404(CloudFile, id=target_parent_id, user=request.user, is_folder=True)
+        target_parent = get_object_or_404(CloudFile, id=target_parent_id, is_folder=True)
+        if not check_edit_access(request.user, target_parent):
+            return Response({"error": "No permission to copy items here"}, status=403)
         
-    items = CloudFile.objects.filter(id__in=item_ids, user=request.user)
+    items = CloudFile.objects.filter(id__in=item_ids)
     
     def is_descendant(folder, target):
         curr = target
@@ -584,6 +619,8 @@ def move_items(request):
         return False
 
     for item in items:
+        if item.user != request.user and not check_edit_access(request.user, item.parent):
+            return Response({"error": f"No permission to move '{item.name}'"}, status=403)
         if item.is_folder and target_parent and is_descendant(item, target_parent):
             return Response({"error": f"Cannot move '{item.name}' into its own subfolder."}, status=400)
             
@@ -598,9 +635,11 @@ def copy_items(request):
     
     target_parent = None
     if target_parent_id and target_parent_id != 'null':
-        target_parent = get_object_or_404(CloudFile, id=target_parent_id, user=request.user, is_folder=True)
+        target_parent = get_object_or_404(CloudFile, id=target_parent_id, is_folder=True)
+        if not check_edit_access(request.user, target_parent):
+            return Response({"error": "No permission to move items here"}, status=403)
         
-    items = CloudFile.objects.filter(id__in=item_ids, user=request.user)
+    items = CloudFile.objects.filter(id__in=item_ids)
     
     def is_descendant(folder, target):
         curr = target
@@ -618,6 +657,8 @@ def copy_items(request):
         new_item = CloudFile.objects.get(id=item.id)
         new_item.pk = None
         new_item.parent = parent
+        new_item.user = request.user
+        new_item.share_mode = 'RESTRICTED'
         new_item.share_token = None
         
         if parent == item.parent:
@@ -664,8 +705,16 @@ def empty_trash(request):
 @permission_classes([IsAuthenticated])
 def permanent_delete(request, item_id):
     item = get_object_or_404(CloudFile, id=item_id)
-    if item.user != request.user and not check_edit_access(request.user, item.parent):
-        return Response({"error": "No permission to delete"}, status=403)
+    if item.user != request.user:
+        has_edit = False
+        accessible_ids = set(FileAccess.objects.filter(user=request.user, role='EDITOR').values_list('file_id', flat=True))
+        if item.id in accessible_ids:
+            has_edit = True
+        elif check_edit_access(request.user, item.parent):
+            has_edit = True
+            
+        if not has_edit:
+            return Response({"error": "No permission to delete"}, status=403)
     item.delete()
     return Response({"message": "Item permanently deleted"})
 

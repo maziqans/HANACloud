@@ -22,6 +22,7 @@ interface FileCardProps {
   onToggleStar?: () => void
   previewUrl?: string
   previewType?: string
+  canEdit?: boolean
 }
 
 const fileIcons: Record<string, React.ElementType> = {
@@ -73,6 +74,7 @@ export function FileCard({
   onToggleStar,
   previewUrl,
   previewType
+  canEdit = true
 }: FileCardProps) {
   const Icon = fileIcons[type] || fileIcons.default
   const styles = fileStyles[type] || fileStyles.default
@@ -164,7 +166,7 @@ export function FileCard({
               <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onToggleStar?.(); }}>{isStarred ? "Remove from Starred" : "Add to Starred"}</button>
               <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDownload?.(); }}>Download</button>
                 <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onShare?.(); }}>Share</button>
-              <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-destructive transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDelete?.(); }}>Move to Trash</button>
+              {canEdit !== false && <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-destructive transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDelete?.(); }}>Move to Trash</button>}
               </>
             )}
           </div>

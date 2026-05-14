@@ -19,6 +19,7 @@ export interface CloudItem {
   item_count?: number
   is_starred?: boolean
   owner?: string
+  can_edit?: boolean
 }
 
 const formatBytes = (bytes: number) => {
@@ -69,7 +70,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
   const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false)
   const [newFolderName, setNewFolderName] = useState("")
   const [currentParentId, setCurrentParentId] = useState<string | null>(null)
-  const [navStack, setNavStack] = useState<{id: string, name: string}[]>([])
+  const [navStack, setNavStack] = useState<{id: string, name: string, can_edit: boolean}[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isDragging, setIsDragging] = useState(false)
   const fetchIdRef = useRef(0)
@@ -127,6 +128,18 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
     setNavStack([]);
     setSelectedItems(new Set());
   }
+  
+  const currentFolderCanEdit = React.useMemo(() => {
+    if (activeSection === "Trash" || activeSection === "Recent" || activeSection === "Starred") return false;
+    if (activeSection === "Shared with me" && !currentParentId) return false;
+    if (currentParentId && navStack.length > 0) return navStack[navStack.length - 1].can_edit;
+    return true; // Root of My Drive
+  }, [activeSection, currentParentId, navStack]);
+
+  useEffect(() => {
+    // Broadcast the permission status so the Sidebar can grey out its Add buttons!
+    window.dispatchEvent(new CustomEvent('canEditChange', { detail: currentFolderCanEdit }));
+  }, [currentFolderCanEdit]);
 
   const loadItems = async (isBackground = false) => {
     const fetchId = ++fetchIdRef.current;
@@ -368,6 +381,10 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
   }
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!currentFolderCanEdit) {
+      alert("You don't have the permission to edit this folder.");
+      return;
+    }
     if (!e.target.files?.length) return
     await processUploadFiles(Array.from(e.target.files))
     e.target.value = ''
@@ -379,6 +396,11 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
     
     // Disable dragging directly into the trash
     if (activeSection === "Trash") return
+    if (!currentFolderCanEdit) {
+      alert("You don't have the permission to edit this folder.");
+      return;
+    }
+
     if (!e.dataTransfer.files?.length) return
     
     await processUploadFiles(Array.from(e.dataTransfer.files))
@@ -440,7 +462,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
     if (activeSection === "Trash") return;
     if (item.item_type === "FOLDER") {
       setCurrentParentId(item.id)
-      setNavStack(prev => [...prev, { id: item.id, name: item.name }])
+      setNavStack(prev => [...prev, { id: item.id, name: item.name, can_edit: item.can_edit ?? false }])
       setSelectedItems(new Set())
     } else {
       if (getPreviewType(item.name)) {
@@ -598,10 +620,16 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
     });
   }
 
+  const selectedCanEdit = Array.from(selectedItems).every(id => {
+    const rawId = id.replace(/file-|folder-/, '');
+    const item = currentItems.find(i => i.id === rawId);
+    return item ? item.can_edit !== false : false;
+  });
+
   return (
     <main 
       className="flex-1 flex flex-col h-svh overflow-hidden bg-background animate-in fade-in duration-700 relative"
-      onDragOver={(e) => { e.preventDefault(); if (activeSection !== "Trash") setIsDragging(true); }}
+      onDragOver={(e) => { e.preventDefault(); if (activeSection !== "Trash" && currentFolderCanEdit) setIsDragging(true); }}
     >
       <input type="file" multiple className="hidden" id="file-upload" onChange={handleUpload} />
       <input type="file" multiple webkitdirectory="true" className="hidden" id="folder-upload" onChange={handleUpload} />
@@ -763,9 +791,9 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
               </div>
             ) : (
               <div className="flex items-center gap-6 text-sm font-semibold tracking-widest uppercase">
-                <button onClick={() => openFolderPicker("move")} className="hover:text-white/70 transition-colors">Move</button>
+                {selectedCanEdit && <button onClick={() => openFolderPicker("move")} className="hover:text-white/70 transition-colors">Move</button>}
                 <button onClick={() => openFolderPicker("copy")} className="hover:text-white/70 transition-colors">Copy</button>
-                <button onClick={handleDeleteSelected} className="text-red-400 hover:text-red-300 transition-colors">Move to Trash</button>
+                {selectedCanEdit && <button onClick={handleDeleteSelected} className="text-red-400 hover:text-red-300 transition-colors">Move to Trash</button>}
               </div>
             )}
           </div>
@@ -826,7 +854,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                               <>
                                 <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); toggleStar(folder.id, !folder.is_starred); }}>{folder.is_starred ? "Remove from Starred" : "Add to Starred"}</button>
                                 <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); handleShare(folder.id); }}>Share</button>
-                                <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-destructive transition-colors" onClick={(e) => { e.stopPropagation(); requestDelete(folder.id, false); }}>Move to Trash</button>
+                                {folder.can_edit !== false && <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-destructive transition-colors" onClick={(e) => { e.stopPropagation(); requestDelete(folder.id, false); }}>Move to Trash</button>}
                               </>
                             )}
                           </div>
@@ -853,6 +881,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                         onRestore={async () => { await api.moveToTrash(folder.id, false); loadItems(true); window.dispatchEvent(new Event("storageUpdated")); }}
                         onPermanentDelete={() => requestDelete(folder.id, true)}
                         onShare={() => handleShare(folder.id)}
+                        canEdit={folder.can_edit !== false}
                         onDownload={() => alert("Downloading entire folders coming soon!")}
                       />
                       </div>
@@ -891,6 +920,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                         onDelete={() => requestDelete(file.id, false)}
                         onRestore={async () => { await api.moveToTrash(file.id, false); loadItems(true); window.dispatchEvent(new Event("storageUpdated")); }}
                         onPermanentDelete={() => requestDelete(file.id, true)}
+                        canEdit={file.can_edit !== false}
                         previewUrl={
                           ['image', 'video', 'pdf'].includes(getPreviewType(file.name) || '')
                             ? `${process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api"}/${getPreviewType(file.name) === 'image' ? 'thumbnail' : 'download'}/${file.id}/?token=${getToken()}`
@@ -934,6 +964,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                           onDelete={() => requestDelete(file.id, false)}
                           onRestore={async () => { await api.moveToTrash(file.id, false); loadItems(true); window.dispatchEvent(new Event("storageUpdated")); }}
                           onPermanentDelete={() => requestDelete(file.id, true)}
+                          canEdit={file.can_edit !== false}
                         previewUrl={
                           ['image', 'video', 'pdf'].includes(getPreviewType(file.name) || '')
                             ? `${process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api"}/${getPreviewType(file.name) === 'image' ? 'thumbnail' : 'download'}/${file.id}/?token=${getToken()}`

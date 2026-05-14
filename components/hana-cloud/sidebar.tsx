@@ -51,6 +51,7 @@ interface SidebarProps {
 export function Sidebar({ onNavigate, activeItem = "My Drive", user, onLogout }: SidebarProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [canEdit, setCanEdit] = useState(true)
   const profileRef = useRef<HTMLDivElement>(null)
 
   // Close profile dropdown when clicking outside
@@ -62,6 +63,12 @@ export function Sidebar({ onNavigate, activeItem = "My Drive", user, onLogout }:
     }
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
+
+  useEffect(() => {
+    const handleCanEdit = (e: any) => setCanEdit(e.detail)
+    window.addEventListener('canEditChange', handleCanEdit)
+    return () => window.removeEventListener('canEditChange', handleCanEdit)
   }, [])
 
   const isSettingsMode = ["Profile Settings", "Storage Management", "Security Settings", "Settings"].includes(activeItem)
@@ -117,8 +124,12 @@ export function Sidebar({ onNavigate, activeItem = "My Drive", user, onLogout }:
             {dropdownOpen && (
               <div className="absolute left-4 right-4 top-full mt-2 z-50 dropdown-dark rounded-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
                 <button 
-                  onClick={() => { setDropdownOpen(false); window.dispatchEvent(new Event('createFolder')) }}
-                  className="w-full px-4 py-3 flex items-center gap-3 text-sidebar-foreground hover:bg-sidebar-accent transition-colors text-left"
+                  onClick={() => { 
+                    setDropdownOpen(false); 
+                    if (!canEdit) { alert("You don't have the permission to edit this folder."); return; }
+                    window.dispatchEvent(new Event('createFolder')) 
+                  }}
+                  className={cn("w-full px-4 py-3 flex items-center gap-3 transition-colors text-left", !canEdit ? "opacity-50 text-sidebar-muted" : "text-sidebar-foreground hover:bg-sidebar-accent")}
                 >
                   <div className="w-8 h-8 rounded-lg bg-sidebar-primary/20 flex items-center justify-center">
                     <FolderPlus className="w-4 h-4 text-sidebar-primary" strokeWidth={2} />
@@ -126,8 +137,12 @@ export function Sidebar({ onNavigate, activeItem = "My Drive", user, onLogout }:
                   <span className="text-sm font-medium">New Folder</span>
                 </button>
                 <button 
-                  onClick={() => { setDropdownOpen(false); document.getElementById('file-upload')?.click() }}
-                  className="w-full px-4 py-3 flex items-center gap-3 text-sidebar-foreground hover:bg-sidebar-accent transition-colors text-left"
+                  onClick={() => { 
+                    setDropdownOpen(false); 
+                    if (!canEdit) { alert("You don't have the permission to edit this folder."); return; }
+                    document.getElementById('file-upload')?.click() 
+                  }}
+                  className={cn("w-full px-4 py-3 flex items-center gap-3 transition-colors text-left", !canEdit ? "opacity-50 text-sidebar-muted" : "text-sidebar-foreground hover:bg-sidebar-accent")}
                 >
                   <div className="w-8 h-8 rounded-lg bg-sidebar-primary/20 flex items-center justify-center">
                     <Upload className="w-4 h-4 text-sidebar-primary" strokeWidth={2} />
@@ -135,8 +150,12 @@ export function Sidebar({ onNavigate, activeItem = "My Drive", user, onLogout }:
                   <span className="text-sm font-medium">File Upload</span>
                 </button>
                 <button 
-                  onClick={() => { setDropdownOpen(false); document.getElementById('folder-upload')?.click() }}
-                  className="w-full px-4 py-3 flex items-center gap-3 text-sidebar-foreground hover:bg-sidebar-accent transition-colors text-left"
+                  onClick={() => { 
+                    setDropdownOpen(false); 
+                    if (!canEdit) { alert("You don't have the permission to edit this folder."); return; }
+                    document.getElementById('folder-upload')?.click() 
+                  }}
+                  className={cn("w-full px-4 py-3 flex items-center gap-3 transition-colors text-left", !canEdit ? "opacity-50 text-sidebar-muted" : "text-sidebar-foreground hover:bg-sidebar-accent")}
                 >
                   <div className="w-8 h-8 rounded-lg bg-sidebar-primary/20 flex items-center justify-center">
                     <FolderInput className="w-4 h-4 text-sidebar-primary" strokeWidth={2} />
