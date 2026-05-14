@@ -178,8 +178,16 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
     }
   }, [folderPicker?.currentFolderId, folderPicker?.isOpen]);
 
+  const fetchRequests = async () => {
+    try {
+      const data = await api.getPendingRequests();
+      setPendingRequests(Array.isArray(data) ? data : []);
+    } catch (e) {}
+  };
+
   useEffect(() => {
     loadItems();
+    fetchRequests();
   }, [activeSection, currentParentId])
 
   useEffect(() => {
@@ -389,14 +397,14 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
 
   // Apply Search Filtering
   const filteredItems = currentItems.filter(item => 
-    item.name.toLowerCase().includes(searchQuery.toLowerCase())
+    (item?.name || "").toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // Apply Sorting
   const sortedItems = [...filteredItems].sort((a, b) => {
     let comparison = 0;
     if (sortBy === "name") {
-      comparison = a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+      comparison = (a?.name || "").localeCompare(b?.name || "", undefined, { numeric: true, sensitivity: 'base' });
     } else if (sortBy === "date") {
       comparison = (a.updated_at ? new Date(a.updated_at).getTime() : 0) - (b.updated_at ? new Date(b.updated_at).getTime() : 0);
     } else if (sortBy === "size") {
@@ -487,7 +495,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
     if (val.length >= 2) {
       try {
         const suggestions = await api.searchUsers(val);
-        setEmailSuggestions(suggestions);
+        setEmailSuggestions(Array.isArray(suggestions) ? suggestions : []);
         setShowSuggestions(true);
       } catch (err) {}
     } else {
@@ -643,11 +651,11 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                 {showRequests && (
                   <div className="absolute top-full right-0 mt-2 w-80 bg-black/80 backdrop-blur-2xl border border-white/20 shadow-2xl rounded-xl overflow-hidden z-50 p-2">
                     <h4 className="text-xs uppercase tracking-widest text-white/50 font-semibold px-3 py-2 mb-1">Access Requests</h4>
-                    {pendingRequests.length === 0 ? (
+                    {!Array.isArray(pendingRequests) || pendingRequests.length === 0 ? (
                       <div className="px-3 py-4 text-sm text-white/40 text-center">No pending requests</div>
                     ) : (
                       <div className="max-h-64 overflow-y-auto custom-scrollbar space-y-1">
-                        {pendingRequests.map(req => (
+                        {pendingRequests?.map(req => (
                           <div key={req.id} className="p-3 bg-white/5 rounded-lg border border-white/10">
                             <p className="text-sm text-white truncate mb-1"><strong>{req.user_email}</strong></p>
                             <p className="text-xs text-white/60 truncate mb-3">Requested access to: {req.file_name}</p>
@@ -1187,9 +1195,9 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                       placeholder="Enter user email..."
                       className="w-full bg-white/5 border border-white/20 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-white/50 text-white placeholder:text-white/40"
                     />
-                    {showSuggestions && emailSuggestions.length > 0 && (
+                    {showSuggestions && Array.isArray(emailSuggestions) && emailSuggestions.length > 0 && (
                       <div className="absolute top-full left-0 right-0 mt-1 bg-black/90 backdrop-blur-2xl border border-white/20 shadow-2xl rounded-xl overflow-hidden z-50">
-                        {emailSuggestions.map(s => (
+                        {emailSuggestions?.map(s => (
                           <div 
                             key={s.email}
                             className="px-4 py-2 hover:bg-white/10 cursor-pointer text-sm"
@@ -1243,7 +1251,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                      <span className="truncate flex-1 font-medium">{user?.email || "You"} (Owner)</span>
                      <span className="text-white/60 text-xs uppercase tracking-widest ml-4">Owner</span>
                    </div>
-                   {shareModal.permissions.map((p, idx) => (
+                   {shareModal.permissions?.map((p, idx) => (
                      <div key={idx} className="flex items-center justify-between text-sm bg-white/5 p-3 rounded-xl border border-white/10 group">
                        <span className="truncate flex-1">{p.email}</span>
                        <div className="flex items-center gap-3">
