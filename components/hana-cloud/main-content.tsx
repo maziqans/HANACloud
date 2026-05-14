@@ -89,6 +89,11 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
   const [shareEmailInput, setShareEmailInput] = useState("")
   const [shareRoleInput, setShareRoleInput] = useState("VIEWER")
   const [isSavingShare, setIsSavingShare] = useState(false)
+  const [emailSuggestions, setEmailSuggestions] = useState<{email: string, name: string}[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [generalAccessDropdownOpen, setGeneralAccessDropdownOpen] = useState(false)
+  const [addRoleDropdownOpen, setAddRoleDropdownOpen] = useState(false)
+  const [openRoleMenuId, setOpenRoleMenuId] = useState<string | null>(null)
   
   const [isCopied, setIsCopied] = useState(false)
   const [isSortMenuOpen, setIsSortMenuOpen] = useState(false)
@@ -176,6 +181,11 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
   useEffect(() => {
     loadItems();
   }, [activeSection, currentParentId])
+
+  useEffect(() => {
+    const interval = setInterval(fetchRequests, 10000); // Poll for access requests every 10 seconds
+    return () => clearInterval(interval);
+  }, [])
 
   useEffect(() => {
     const handleCreateFolder = () => {
@@ -456,15 +466,33 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
   }
 
   const saveShareSettings = async (mode: string, perms: {email: string, role: string}[]) => {
+    // Optimistic UI Update: instantly apply mode/permission changes without waiting for server
+    setShareModal(prev => prev ? { ...prev, share_mode: mode as any, permissions: perms } : null);
     setIsSavingShare(true);
     try {
       await api.saveShareSettings(shareModal!.item_id, mode, perms);
-      setShareModal(prev => prev ? { ...prev, share_mode: mode as any, permissions: perms } : null);
       setShareEmailInput("");
+      setEmailSuggestions([]);
+      setShowSuggestions(false);
     } catch (e: any) {
       alert(e.message);
     } finally {
       setIsSavingShare(false);
+    }
+  }
+
+  const handleEmailInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setShareEmailInput(val);
+    if (val.length >= 2) {
+      try {
+        const suggestions = await api.searchUsers(val);
+        setEmailSuggestions(suggestions);
+        setShowSuggestions(true);
+      } catch (err) {}
+    } else {
+      setEmailSuggestions([]);
+      setShowSuggestions(false);
     }
   }
 
@@ -1143,25 +1171,56 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
             <div className="bg-white/10 backdrop-blur-2xl border border-white/20 shadow-[0_0_40px_rgba(0,0,0,0.5)] rounded-3xl w-full max-w-md p-8 animate-in zoom-in-95 text-white">
               <h3 className="text-2xl font-light tracking-wide mb-6">Share "{currentItems.find(i => i.id === shareModal.item_id)?.name || "Item"}"</h3>
               
+              {shareModal.share_mode === 'RESTRICTED' && (
+                <>
               {/* Add People */}
               <div className="mb-6">
                 <label className="block text-xs uppercase tracking-widest text-white/60 mb-2 font-semibold">Share with people</label>
                 <div className="flex gap-2">
-                  <input
-                    type="email"
-                    value={shareEmailInput}
-                    onChange={(e) => setShareEmailInput(e.target.value)}
-                    placeholder="Enter user email..."
-                    className="flex-1 bg-white/5 border border-white/20 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-white/50 text-white placeholder:text-white/40"
-                  />
-                  <select 
-                    value={shareRoleInput}
-                    onChange={(e) => setShareRoleInput(e.target.value)}
-                    className="bg-white/5 border border-white/20 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none appearance-none cursor-pointer"
-                  >
-                    <option value="VIEWER" className="text-black">Viewer</option>
-                    <option value="EDITOR" className="text-black">Editor</option>
-                  </select>
+                  <div className="relative flex-1">
+                    <input
+                      type="email"
+                      value={shareEmailInput}
+                      onChange={handleEmailInputChange}
+                      onFocus={() => { if(emailSuggestions.length > 0) setShowSuggestions(true); }}
+                      onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                      placeholder="Enter user email..."
+                      className="w-full bg-white/5 border border-white/20 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-white/50 text-white placeholder:text-white/40"
+                    />
+                    {showSuggestions && emailSuggestions.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-black/90 backdrop-blur-2xl border border-white/20 shadow-2xl rounded-xl overflow-hidden z-50">
+                        {emailSuggestions.map(s => (
+                          <div 
+                            key={s.email}
+                            className="px-4 py-2 hover:bg-white/10 cursor-pointer text-sm"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setShareEmailInput(s.email);
+                              setShowSuggestions(false);
+                            }}
+                          >
+                            <div className="text-white font-medium">{s.name}</div>
+                            <div className="text-white/60 text-xs">{s.email}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <button
+                      onClick={() => setAddRoleDropdownOpen(!addRoleDropdownOpen)}
+                      className="bg-white/5 border border-white/20 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none flex items-center justify-between gap-2 min-w-[100px] hover:bg-white/10 transition-colors"
+                    >
+                      <span>{shareRoleInput === "VIEWER" ? "Viewer" : "Editor"}</span>
+                      <ChevronDown className="w-4 h-4 text-white/50" />
+                    </button>
+                    {addRoleDropdownOpen && (
+                      <div className="absolute top-full right-0 mt-2 bg-black/90 backdrop-blur-2xl border border-white/20 shadow-2xl rounded-xl overflow-hidden z-50 min-w-[120px]">
+                        <button onClick={() => { setShareRoleInput("VIEWER"); setAddRoleDropdownOpen(false); }} className="w-full text-left px-4 py-2.5 text-sm text-white hover:bg-white/10 transition-colors">Viewer</button>
+                        <button onClick={() => { setShareRoleInput("EDITOR"); setAddRoleDropdownOpen(false); }} className="w-full text-left px-4 py-2.5 text-sm text-white hover:bg-white/10 transition-colors">Editor</button>
+                      </div>
+                    )}
+                  </div>
                   <button
                     disabled={!shareEmailInput || isSavingShare}
                     onClick={() => {
@@ -1188,7 +1247,26 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                      <div key={idx} className="flex items-center justify-between text-sm bg-white/5 p-3 rounded-xl border border-white/10 group">
                        <span className="truncate flex-1">{p.email}</span>
                        <div className="flex items-center gap-3">
-                         <span className="text-white/60 text-xs uppercase tracking-widest">{p.role}</span>
+                         <div className="relative">
+                           <button
+                             onClick={() => setOpenRoleMenuId(openRoleMenuId === p.email ? null : p.email)}
+                             className="bg-transparent text-white/60 text-xs uppercase tracking-widest outline-none hover:text-white transition-colors flex items-center gap-1"
+                           >
+                             {p.role} <ChevronDown className="w-3 h-3" />
+                           </button>
+                           {openRoleMenuId === p.email && (
+                             <div className="absolute top-full right-0 mt-2 bg-black/90 backdrop-blur-2xl border border-white/20 shadow-2xl rounded-xl overflow-hidden z-50 min-w-[100px]">
+                               <button onClick={() => {
+                                 saveShareSettings(shareModal.share_mode, shareModal.permissions.map(perm => perm.email === p.email ? { ...perm, role: "VIEWER" } : perm));
+                                 setOpenRoleMenuId(null);
+                               }} className="w-full text-left px-4 py-2.5 text-xs text-white uppercase tracking-widest hover:bg-white/10 transition-colors">VIEWER</button>
+                               <button onClick={() => {
+                                 saveShareSettings(shareModal.share_mode, shareModal.permissions.map(perm => perm.email === p.email ? { ...perm, role: "EDITOR" } : perm));
+                                 setOpenRoleMenuId(null);
+                               }} className="w-full text-left px-4 py-2.5 text-xs text-white uppercase tracking-widest hover:bg-white/10 transition-colors">EDITOR</button>
+                             </div>
+                           )}
+                         </div>
                          <button 
                            onClick={() => {
                              const newPerms = shareModal.permissions.filter(perm => perm.email !== p.email);
@@ -1203,19 +1281,27 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                    ))}
                  </div>
               </div>
+                </>
+              )}
 
               {/* General Access */}
               <div className="mb-8 p-4 bg-white/5 border border-white/10 rounded-xl">
                  <label className="block text-xs uppercase tracking-widest text-white/60 mb-2 font-semibold">General Access</label>
-                 <select 
-                    value={shareModal.share_mode}
-                    onChange={(e) => saveShareSettings(e.target.value, shareModal.permissions)}
-                    disabled={isSavingShare}
-                    className="w-full bg-transparent border border-white/20 rounded-lg px-3 py-2 text-sm text-white focus:outline-none appearance-none cursor-pointer"
-                  >
-                    <option value="RESTRICTED" className="text-black">Restricted - Only people added can access</option>
-                    <option value="PUBLIC" className="text-black">Public - Anyone with the link can access</option>
-                  </select>
+                 <div className="relative">
+                   <button
+                     onClick={() => setGeneralAccessDropdownOpen(!generalAccessDropdownOpen)}
+                     className="w-full bg-white/5 border border-white/20 rounded-xl px-4 py-3 text-sm text-white flex justify-between items-center hover:bg-white/10 transition-colors text-left"
+                   >
+                     <span>{shareModal.share_mode === "RESTRICTED" ? "Restricted - Only people added can access" : "Public - Anyone with the link can access"}</span>
+                     <ChevronDown className={cn("w-4 h-4 text-white/50 transition-transform", generalAccessDropdownOpen && "rotate-180")} />
+                   </button>
+                   {generalAccessDropdownOpen && (
+                     <div className="absolute top-full left-0 right-0 mt-2 bg-black/90 backdrop-blur-2xl border border-white/20 shadow-2xl rounded-xl overflow-hidden z-50">
+                       <button onClick={() => { saveShareSettings("RESTRICTED", shareModal.permissions); setGeneralAccessDropdownOpen(false); }} className="w-full text-left px-4 py-3 text-sm text-white hover:bg-white/10 transition-colors">Restricted - Only people added can access</button>
+                       <button onClick={() => { saveShareSettings("PUBLIC", shareModal.permissions); setGeneralAccessDropdownOpen(false); }} className="w-full text-left px-4 py-3 text-sm text-white hover:bg-white/10 transition-colors">Public - Anyone with the link can access</button>
+                     </div>
+                   )}
+                 </div>
               </div>
 
               {/* Action Buttons */}

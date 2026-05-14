@@ -33,6 +33,7 @@ const navItems: NavItem[] = [
   { icon: Clock, label: "Recent" },
   { icon: Star, label: "Starred" },
   { icon: Trash2, label: "Trash" },
+  { icon: ShieldAlert, label: "Deploy Test!" },
 ]
 
 const settingsItems: NavItem[] = [

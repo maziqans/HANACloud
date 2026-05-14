@@ -155,7 +155,7 @@ export default function SharedPage() {
             <p className="text-white/60">Shared securely by <span className="font-medium text-white">{item.owner}</span> • {item.user_role && <span className="text-white bg-white/10 px-2 py-0.5 rounded text-xs ml-1">{item.user_role}</span>} • {item.item_type === "FOLDER" ? `${item.children?.length} items` : formatBytes(item.size_bytes)}</p>
           </div>
           
-          {typeof window !== "undefined" && !localStorage.getItem("access_token") && !item.user_role && (
+          {typeof window !== "undefined" && !localStorage.getItem("access_token") && (
             <button onClick={() => window.location.href = `/?redirect=${encodeURIComponent(window.location.pathname)}`} className="px-6 py-3 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-xl text-xs font-semibold uppercase tracking-widest transition-colors shadow-lg w-full md:w-auto text-center">
               Log in to save to Shared with me
             </button>

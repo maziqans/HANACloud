@@ -141,6 +141,11 @@ export const getCurrentUser = async () => {
   return response.data;
 };
 
+export const searchUsers = async (query: string) => {
+  const response = await apiClient.get(`/users/search/?q=${encodeURIComponent(query)}`);
+  return response.data;
+};
+
 export const logout = () => {
   if (typeof window !== 'undefined') {
     localStorage.removeItem('access_token');
