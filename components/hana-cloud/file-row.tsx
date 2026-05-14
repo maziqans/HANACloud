@@ -75,7 +75,7 @@ export function FileRow({
   onDownload,
   onToggleStar,
   previewUrl,
-  previewType
+  previewType,
   canEdit = true
 }: FileRowProps) {
   const Icon = fileIcons[type] || fileIcons.default

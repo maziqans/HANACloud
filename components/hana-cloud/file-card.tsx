@@ -73,7 +73,7 @@ export function FileCard({
   onDownload,
   onToggleStar,
   previewUrl,
-  previewType
+  previewType,
   canEdit = true
 }: FileCardProps) {
   const Icon = fileIcons[type] || fileIcons.default
