@@ -7,6 +7,7 @@ from django.utils import timezone
 from django.db.models import Sum, Count, Q
 import os
 from core.models import CloudFile, UserProfile, FileAccess, AccessRequest
+from django.contrib.auth.models import User
 
 def check_edit_access(user, folder):
     """Helper to check if a user is allowed to modify files inside a target folder."""
