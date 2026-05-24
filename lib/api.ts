@@ -1,6 +1,14 @@
 import axios from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.56.101:8080/api';
+export const getBaseUrl = () => {
+  // If accessed locally via IP, use the local backend port 8080
+  if (typeof window !== 'undefined' && window.location.hostname === '192.168.56.101') {
+    return 'http://192.168.56.101:8080/api';
+  }
+  return process.env.NEXT_PUBLIC_API_URL || 'https://cloud-api.hanacasa.my/api';
+};
+
+const API_URL = getBaseUrl();
 
 const apiClient = axios.create({
   baseURL: API_URL,

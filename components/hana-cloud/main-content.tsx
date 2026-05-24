@@ -460,7 +460,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
   const files = sortedItems.filter((item) => item.item_type === "FILE")
 
   const handleDownload = (id: string) => {
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api"
+    const baseUrl = api.getBaseUrl()
     const link = document.createElement("a")
     link.href = `${baseUrl}/download/${id}/?token=${getToken()}`
     link.target = "_blank"
@@ -554,7 +554,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
   const handleActionConfirm = async () => {
     if (!folderPicker) return;
     
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api";
+    const baseUrl = api.getBaseUrl();
     const token = localStorage.getItem("access_token") || localStorage.getItem("token") || "";
     const itemIds = Array.from(selectedItems).map(id => id.replace(/file-|folder-/, ''));
     
@@ -945,7 +945,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                         canEdit={file.can_edit !== false}
                         previewUrl={
                           ['image', 'video', 'pdf'].includes(getPreviewType(file.name) || '')
-                            ? `${process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api"}/${getPreviewType(file.name) === 'image' ? 'thumbnail' : 'download'}/${file.id}/?token=${getToken()}`
+                            ? `${api.getBaseUrl()}/${getPreviewType(file.name) === 'image' ? 'thumbnail' : 'download'}/${file.id}/?token=${getToken()}`
                             : undefined
                         }
                         previewType={getPreviewType(file.name) || undefined}
@@ -989,7 +989,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                           canEdit={file.can_edit !== false}
                         previewUrl={
                           ['image', 'video', 'pdf'].includes(getPreviewType(file.name) || '')
-                            ? `${process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api"}/${getPreviewType(file.name) === 'image' ? 'thumbnail' : 'download'}/${file.id}/?token=${getToken()}`
+                            ? `${api.getBaseUrl()}/${getPreviewType(file.name) === 'image' ? 'thumbnail' : 'download'}/${file.id}/?token=${getToken()}`
                             : undefined
                         }
                         previewType={getPreviewType(file.name) || undefined}
@@ -1221,7 +1221,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
           <div className="w-full h-full max-w-6xl max-h-[85vh] p-8 flex flex-col items-center justify-center relative">
             {getPreviewType(previewItem.name) === 'image' && (
                <img 
-                 src={`${process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api"}/download/${previewItem.id}/?token=${getToken()}`} 
+                 src={`${api.getBaseUrl()}/download/${previewItem.id}/?token=${getToken()}`} 
                  alt={previewItem.name} 
                  className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
                />
@@ -1230,7 +1230,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                <video 
                  controls 
                  autoPlay
-                 src={`${process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api"}/download/${previewItem.id}/?token=${getToken()}`} 
+                 src={`${api.getBaseUrl()}/download/${previewItem.id}/?token=${getToken()}`} 
                  className="max-w-full max-h-full rounded-lg shadow-2xl bg-black"
                />
             )}
@@ -1243,7 +1243,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                  <audio 
                    controls 
                    autoPlay
-                   src={`${process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api"}/download/${previewItem.id}/?token=${getToken()}`} 
+                   src={`${api.getBaseUrl()}/download/${previewItem.id}/?token=${getToken()}`} 
                    className="w-full"
                  />
                </div>
