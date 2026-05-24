@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import * as api from "@/lib/api"
-import { User, HardDrive, ShieldAlert, Upload, CheckCircle2, Edit2, AlertCircle } from "lucide-react"
+import { User, HardDrive, ShieldAlert, Upload, CheckCircle2, Edit2, AlertCircle, Menu } from "lucide-react"
 import { StorageBreakdown } from "./storage-breakdown"
 
 export function SettingsContent({ user, onUpdate, activeSection = "Profile Settings" }: { user?: any, onUpdate?: () => void, activeSection?: string }) {
@@ -85,9 +85,17 @@ export function SettingsContent({ user, onUpdate, activeSection = "Profile Setti
       <div className="max-w-4xl w-full mx-auto px-8 py-10 space-y-12">
         
         {/* Page Header (Sleek & Modern) */}
-        <div className="mb-10">
-          <h1 className="text-4xl font-light tracking-tight text-foreground">Account Settings</h1>
-          <p className="text-muted-foreground mt-2">Manage your profile, storage, and security preferences.</p>
+        <div className="mb-10 flex items-start gap-4">
+          <button 
+            onClick={() => window.dispatchEvent(new Event('toggleMobileSidebar'))}
+            className="md:hidden mt-1 p-2 -ml-2 text-foreground hover:bg-secondary rounded-lg transition-colors shrink-0"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+          <div>
+            <h1 className="text-3xl md:text-4xl font-light tracking-tight text-foreground">Account Settings</h1>
+            <p className="text-muted-foreground mt-2">Manage your profile, storage, and security preferences.</p>
+          </div>
         </div>
         
         {/* Profile Settings */}

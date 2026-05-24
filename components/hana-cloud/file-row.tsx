@@ -87,7 +87,7 @@ export function FileRow({
       onClick={onClick}
       onDoubleClick={onDoubleClick}
       className={cn(
-        "group relative grid grid-cols-[auto_1fr_100px_140px_40px] gap-4 items-center px-4 py-3 rounded-xl cursor-pointer transition-all duration-200",
+        "group relative grid grid-cols-[auto_1fr_80px_40px] sm:grid-cols-[auto_1fr_100px_140px_40px] gap-4 items-center px-4 py-3 rounded-xl cursor-pointer transition-all duration-200",
         selected && "cozy-selected",
         !selected && "hover:bg-secondary/50"
       )}
@@ -137,12 +137,12 @@ export function FileRow({
       </div>
 
       {/* Size */}
-      <span className="text-sm text-muted-foreground text-right">
+      <span className="text-xs sm:text-sm text-muted-foreground text-right truncate">
         {size}
       </span>
 
       {/* Modified date */}
-      <span className="text-sm text-muted-foreground text-right">
+      <span className="hidden sm:block text-sm text-muted-foreground text-right truncate">
         {modified}
       </span>
 

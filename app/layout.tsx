@@ -10,25 +10,58 @@ const inter = Inter({
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'HANACloud - Private Cloud Storage',
+  title: 'HANACloud',
   description: 'Premium private cloud storage with precision engineering',
-  generator: 'v0.app',
+  generator: 'Ammar Haziq',
+{
+  "name": "HANACloud",
+  "short_name": "HANACloud",
+  "description": "Your private storage cloud",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "/HANACloud.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
+{
+  "name": "HANACloud",
+  "short_name": "HANACloud",
+  "description": "Your private storage cloud",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "/HANACloud.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
+  manifest: '/manifest.json',
   icons: {
     icon: [
       {
-        url: '/icon-light-32x32.png',
+        url: '/HANACloud.png',
         media: '(prefers-color-scheme: light)',
       },
       {
-        url: '/icon-dark-32x32.png',
+        url: '/HANACloud.png',
         media: '(prefers-color-scheme: dark)',
       },
       {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
+        url: '/HANACloud.png',
+        type: 'image/png',
       },
     ],
-    apple: '/apple-icon.png',
+    apple: '/HANACloud.png',
   },
 }
 

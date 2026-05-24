@@ -7,7 +7,7 @@ import { ViewToggle } from "./view-toggle"
 import { FolderCard } from "./folder-card"
 import { FileCard } from "./file-card"
 import { FileRow } from "./file-row"
-import { Inbox, CheckCircle2, Loader2, MoreHorizontal, ChevronRight, ChevronDown, Star, Upload, X, Download, ArrowUp, ArrowDown, Play, Bell, ShieldAlert, AlertCircle } from "lucide-react"
+import { Inbox, CheckCircle2, Loader2, MoreHorizontal, ChevronRight, ChevronDown, Star, Upload, X, Download, ArrowUp, ArrowDown, Play, Bell, ShieldAlert, AlertCircle, Menu } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export interface CloudItem {
@@ -656,12 +656,20 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
       <input type="file" multiple webkitdirectory="true" className="hidden" id="folder-upload" onChange={handleUpload} />
 
       {/* Header */}
-      <header className="px-8 py-6 border-b border-border bg-card/50">
-        <div className="flex items-center justify-between gap-6 mb-6 relative z-30">
-          <div className="flex-1 max-w-xl">
-            <SearchBar value={searchQuery} onChange={setSearchQuery} />
+      <header className="px-4 md:px-8 py-4 md:py-6 border-b border-border bg-card/50">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 md:mb-6 relative z-30">
+          <div className="flex items-center gap-3 w-full md:max-w-xl md:flex-1">
+            <button 
+              onClick={() => window.dispatchEvent(new Event('toggleMobileSidebar'))}
+              className="md:hidden p-2 -ml-2 text-foreground hover:bg-secondary rounded-lg transition-colors shrink-0"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+            <div className="flex-1 min-w-0">
+              <SearchBar value={searchQuery} onChange={setSearchQuery} />
+            </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4 overflow-x-auto pb-1 md:pb-0 w-full md:w-auto custom-scrollbar">
             {/* Sort Controls */}
             <div className="flex items-center bg-white/5 border border-white/10 rounded-xl p-1 text-sm shadow-sm backdrop-blur-md relative" onMouseLeave={() => setIsSortMenuOpen(false)}>
               <button 
@@ -733,7 +741,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
         </div>
 
         {/* Section Title */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 text-2xl font-semibold text-foreground">
               <button 
@@ -758,7 +766,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
               {activeSection === "Trash" ? "Items in trash will be permanently deleted when cleared." : activeSection === "Recent" ? "Your 20 most recently viewed files." : activeSection === "Shared with me" ? "Files and folders shared securely with you." : activeSection === "Starred" ? "Your favorite files and folders." : `Welcome back, ${user?.first_name || user?.username}! Here are your files.`}
             </p>
           </div>
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <div className="flex items-center gap-4 text-sm text-muted-foreground overflow-x-auto pb-1 sm:pb-0 whitespace-nowrap">
             {activeSection === "Trash" && (
               <button 
                 onClick={() => {
@@ -786,15 +794,15 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
 
       {/* Content Area */}
       <div 
-        className="flex-1 overflow-auto px-8 py-6"
+        className="flex-1 overflow-auto px-4 md:px-8 py-4 md:py-6"
         onMouseDown={handleMouseDown}
       >
         {/* Selection Action Bar */}
         {selectedItems.size > 0 && (
-          <div className="bg-white/10 backdrop-blur-2xl border border-white/20 text-white px-8 py-4 rounded-2xl flex items-center justify-between mb-8 shadow-[0_10px_40px_rgba(0,0,0,0.3)] animate-in slide-in-from-top-2 relative z-20">
-            <span className="font-light tracking-wider text-lg">{selectedItems.size} document(s) selected</span>
+          <div className="bg-white/10 backdrop-blur-2xl border border-white/20 text-white px-4 md:px-8 py-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 shadow-[0_10px_40px_rgba(0,0,0,0.3)] animate-in slide-in-from-top-2 relative z-20">
+            <span className="font-light tracking-wider text-base md:text-lg shrink-0">{selectedItems.size} document(s) selected</span>
             {activeSection === "Trash" ? (
-              <div className="flex items-center gap-6 text-sm font-semibold tracking-widest uppercase">
+              <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-xs sm:text-sm font-semibold tracking-widest uppercase">
                 <button onClick={async () => {
                   for (const idStr of selectedItems) await api.moveToTrash(idStr.replace(/file-|folder-/, ''), false);
                   setSelectedItems(new Set()); loadItems(true); window.dispatchEvent(new Event("storageUpdated"));
@@ -811,7 +819,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                 }} className="text-red-400 hover:text-red-300 transition-colors">Delete Permanently</button>
               </div>
             ) : (
-              <div className="flex items-center gap-6 text-sm font-semibold tracking-widest uppercase">
+              <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-xs sm:text-sm font-semibold tracking-widest uppercase">
                 {selectedCanEdit && <button onClick={() => openFolderPicker("move")} className="hover:text-white/70 transition-colors">Move</button>}
                 <button onClick={() => openFolderPicker("copy")} className="hover:text-white/70 transition-colors">Copy</button>
                 {selectedCanEdit && <button onClick={handleDeleteSelected} className="text-red-400 hover:text-red-300 transition-colors">Move to Trash</button>}
@@ -842,7 +850,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                   Folders
                 </h2>
                 {view === "grid" ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4">
                     {folders.map((folder) => (
                       <div 
                         key={folder.id} 
@@ -920,7 +928,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                   Files
                 </h2>
                 {view === "grid" ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4">
                     {files.map((file) => (
                       <div 
                         key={file.id} 
@@ -956,11 +964,11 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                 ) : (
                   <div className="bg-card rounded-2xl border border-border overflow-hidden">
                     {/* Table Header */}
-                    <div className="grid grid-cols-[auto_1fr_100px_140px_40px] gap-4 items-center px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/50">
+                <div className="grid grid-cols-[auto_1fr_80px_40px] sm:grid-cols-[auto_1fr_100px_140px_40px] gap-4 items-center px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/50">
                       <div className="w-5" />
                       <div>Name</div>
                       <div className="text-right">Size</div>
-                      <div className="text-right">Modified</div>
+                  <div className="hidden sm:block text-right">Modified</div>
                       <div />
                     </div>
                     <div className="divide-y divide-border/50">

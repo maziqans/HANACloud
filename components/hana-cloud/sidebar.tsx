@@ -21,6 +21,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { StorageBar } from "./storage-bar"
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 
 interface NavItem {
   icon: React.ElementType
@@ -52,6 +53,7 @@ export function Sidebar({ onNavigate, activeItem = "My Drive", user, onLogout }:
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [canEdit, setCanEdit] = useState(true)
+  const [isMobileOpen, setIsMobileOpen] = useState(false)
   const profileRef = useRef<HTMLDivElement>(null)
 
   // Close profile dropdown when clicking outside
@@ -71,12 +73,18 @@ export function Sidebar({ onNavigate, activeItem = "My Drive", user, onLogout }:
     return () => window.removeEventListener('canEditChange', handleCanEdit)
   }, [])
 
+  useEffect(() => {
+    const handleToggle = () => setIsMobileOpen(prev => !prev)
+    window.addEventListener('toggleMobileSidebar', handleToggle)
+    return () => window.removeEventListener('toggleMobileSidebar', handleToggle)
+  }, [])
+
   const isSettingsMode = ["Profile Settings", "Storage Management", "Security Settings", "Settings"].includes(activeItem)
   const isTrashMode = activeItem === "Trash"
   const currentNavItems = isSettingsMode ? settingsItems : navItems
 
-  return (
-    <aside className="w-64 h-screen flex flex-col bg-sidebar border-r border-sidebar-border">
+  const innerContent = (
+    <div className="flex flex-col h-full w-full bg-sidebar">
       {/* Logo Section */}
       <div className="px-5 py-6">
         <div className="flex items-center gap-3">
@@ -100,7 +108,7 @@ export function Sidebar({ onNavigate, activeItem = "My Drive", user, onLogout }:
       <div className="px-4 pb-4 relative">
         {isSettingsMode || isTrashMode ? (
           <button
-            onClick={() => onNavigate?.("My Drive")}
+            onClick={() => { onNavigate?.("My Drive"); setIsMobileOpen(false); }}
             className="w-full bg-sidebar-accent/50 hover:bg-sidebar-accent text-sidebar-foreground rounded-xl px-4 py-3 flex items-center gap-2.5 transition-cozy"
           >
             <ArrowLeft className="w-4 h-4" strokeWidth={2} />
@@ -179,6 +187,7 @@ export function Sidebar({ onNavigate, activeItem = "My Drive", user, onLogout }:
               onClick={() => {
                 onNavigate?.(item.label)
                 setDropdownOpen(false)
+              setIsMobileOpen(false)
               }}
               className={cn(
                 "w-full px-3 py-2.5 rounded-xl flex items-center gap-3 transition-all duration-200 text-left mb-1 relative",
@@ -230,6 +239,7 @@ export function Sidebar({ onNavigate, activeItem = "My Drive", user, onLogout }:
                 onClick={() => {
                   onNavigate?.("Profile Settings");
                   setProfileOpen(false);
+                setIsMobileOpen(false);
                 }}
                 className="w-full px-4 py-3 flex items-center gap-3 text-sidebar-foreground hover:bg-sidebar-accent transition-colors text-left"
               >
@@ -251,6 +261,20 @@ export function Sidebar({ onNavigate, activeItem = "My Drive", user, onLogout }:
         {/* Storage Progress */}
         <StorageBar />
       </div>
-    </aside>
+    </div>
+  )
+
+  return (
+    <>
+      <aside className="hidden md:flex w-64 h-screen flex-col border-r border-sidebar-border shrink-0 bg-sidebar">
+        {innerContent}
+      </aside>
+      <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
+        <SheetContent side="left" className="p-0 w-[280px] bg-sidebar border-r-0 [&>button]:hidden">
+          <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+          {innerContent}
+        </SheetContent>
+      </Sheet>
+    </>
   )
 }
