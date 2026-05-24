@@ -13,38 +13,6 @@ export const metadata: Metadata = {
   title: 'HANACloud',
   description: 'Premium private cloud storage with precision engineering',
   generator: 'Ammar Haziq',
-{
-  "name": "HANACloud",
-  "short_name": "HANACloud",
-  "description": "Your private storage cloud",
-  "start_url": "/",
-  "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#000000",
-  "icons": [
-    {
-      "src": "/HANACloud.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
-  ]
-}
-{
-  "name": "HANACloud",
-  "short_name": "HANACloud",
-  "description": "Your private storage cloud",
-  "start_url": "/",
-  "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#000000",
-  "icons": [
-    {
-      "src": "/HANACloud.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
-  ]
-}
   manifest: '/manifest.json',
   icons: {
     icon: [
