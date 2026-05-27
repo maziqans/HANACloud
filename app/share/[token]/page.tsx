@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import { Download, File, Folder, Loader2 } from "lucide-react"
+import { getBaseUrl } from "@/lib/api"
 
 interface SharedItem {
   id: string
@@ -47,7 +48,7 @@ export default function SharedPage() {
     if (!token) return;
     const fetchSharedItem = async () => {
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api"
+        const baseUrl = getBaseUrl()
         const tokenStr = localStorage.getItem("access_token") || localStorage.getItem("token") || "";
         const headers = tokenStr ? { "Authorization": `Bearer ${tokenStr}` } : {};
         const res = await fetch(`${baseUrl}/shared/${token}/`, { headers })
@@ -75,7 +76,7 @@ export default function SharedPage() {
   }, [token])
 
   const handleDownload = (id: string) => {
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api"
+    const baseUrl = getBaseUrl()
     const tokenStr = localStorage.getItem("access_token") || localStorage.getItem("token") || "";
     window.open(`${baseUrl}/download/${id}/?token=${tokenStr}`, "_blank")
   }
@@ -104,7 +105,7 @@ export default function SharedPage() {
         
         {requestStatus === 'NONE' || requestStatus === 'REJECTED' ? (
           <button onClick={async () => {
-             const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api";
+             const baseUrl = getBaseUrl();
              const tokenStr = localStorage.getItem("access_token") || localStorage.getItem("token") || "";
              await fetch(`${baseUrl}/shared/${token}/request/`, { method: "POST", headers: { "Authorization": `Bearer ${tokenStr}` }});
              setRequestStatus("PENDING");
@@ -163,7 +164,7 @@ export default function SharedPage() {
               </button>
             ) : !item.is_saved && (
               <button onClick={async () => {
-                const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api";
+                const baseUrl = getBaseUrl();
                 const tokenStr = localStorage.getItem("access_token") || localStorage.getItem("token") || "";
                 try {
                   const res = await fetch(`${baseUrl}/shared/${token}/save/`, { method: "POST", headers: { "Authorization": `Bearer ${tokenStr}` }});
@@ -190,7 +191,7 @@ export default function SharedPage() {
           <div className="p-6 md:p-8 bg-black/20 border-b border-white/10 flex justify-center">
             {(() => {
               const pType = getPreviewType(item.name);
-              const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://192.168.56.101:8080/api";
+              const baseUrl = getBaseUrl();
               const tokenStr = typeof window !== "undefined" ? (localStorage.getItem("access_token") || localStorage.getItem("token") || "") : "";
               const previewUrl = `${baseUrl}/download/${item.id}/?token=${tokenStr}`;
               
