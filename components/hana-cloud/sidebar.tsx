@@ -83,6 +83,16 @@ export function Sidebar({ onNavigate, activeItem = "My Drive", user, onLogout }:
   const isTrashMode = activeItem === "Trash"
   const currentNavItems = isSettingsMode ? settingsItems : navItems
 
+  const handleNavigation = (label: string) => {
+    if (isMobileOpen) {
+      setIsMobileOpen(false)
+      setTimeout(() => onNavigate?.(label), 250) // Delay to let Sheet animate out smoothly
+    } else {
+      onNavigate?.(label)
+    }
+    setDropdownOpen(false)
+  }
+
   const innerContent = (
     <div className="flex flex-col h-full w-full bg-sidebar">
       {/* Logo Section */}
@@ -108,7 +118,7 @@ export function Sidebar({ onNavigate, activeItem = "My Drive", user, onLogout }:
       <div className="px-4 pb-4 relative">
         {isSettingsMode || isTrashMode ? (
           <button
-            onClick={() => { onNavigate?.("My Drive"); setIsMobileOpen(false); }}
+            onClick={() => handleNavigation("My Drive")}
             className="w-full bg-sidebar-accent/50 hover:bg-sidebar-accent text-sidebar-foreground rounded-xl px-4 py-3 flex items-center gap-2.5 transition-cozy"
           >
             <ArrowLeft className="w-4 h-4" strokeWidth={2} />
@@ -184,11 +194,7 @@ export function Sidebar({ onNavigate, activeItem = "My Drive", user, onLogout }:
           return (
             <button
               key={item.label}
-              onClick={() => {
-                onNavigate?.(item.label)
-                setDropdownOpen(false)
-              setIsMobileOpen(false)
-              }}
+              onClick={() => handleNavigation(item.label)}
               className={cn(
                 "w-full px-3 py-2.5 rounded-xl flex items-center gap-3 transition-all duration-200 text-left mb-1 relative",
                 isActive 
@@ -237,9 +243,8 @@ export function Sidebar({ onNavigate, activeItem = "My Drive", user, onLogout }:
             <div className="absolute left-0 right-0 bottom-full mb-2 z-50 dropdown-dark rounded-xl overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-150">
               <button 
                 onClick={() => {
-                  onNavigate?.("Profile Settings");
+                  handleNavigation("Profile Settings");
                   setProfileOpen(false);
-                setIsMobileOpen(false);
                 }}
                 className="w-full px-4 py-3 flex items-center gap-3 text-sidebar-foreground hover:bg-sidebar-accent transition-colors text-left"
               >

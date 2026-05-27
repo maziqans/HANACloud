@@ -661,7 +661,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
           <div className="flex items-center gap-3 w-full md:max-w-xl md:flex-1">
             <button 
               onClick={() => window.dispatchEvent(new Event('toggleMobileSidebar'))}
-              className="md:hidden p-2 -ml-2 text-foreground hover:bg-secondary rounded-lg transition-colors shrink-0"
+              className="md:hidden p-2 -ml-2 text-foreground hover:bg-secondary rounded-lg transition-colors shrink-0 touch-manipulation"
             >
               <Menu className="w-6 h-6" />
             </button>
@@ -855,7 +855,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                       <div 
                         key={folder.id} 
                         onDoubleClick={() => handleDoubleClick(folder)}
-                        className="relative group selectable-item"
+                        className="relative group selectable-item touch-manipulation"
                         data-selection-id={`folder-${folder.id}`}
                       >
                         <FolderCard
@@ -894,7 +894,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                 ) : (
                   <div className="space-y-1">
                     {folders.map((folder) => (
-                      <div key={folder.id} data-selection-id={`folder-${folder.id}`} className="selectable-item">
+                      <div key={folder.id} data-selection-id={`folder-${folder.id}`} className="selectable-item touch-manipulation">
                       <FileRow
                         name={folder.name}
                         type="default"
@@ -933,7 +933,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                       <div 
                         key={file.id} 
                         data-selection-id={`file-${file.id}`} 
-                        className="selectable-item h-full"
+                        className="selectable-item h-full touch-manipulation"
                       >
                       <FileCard
                         name={file.name}
@@ -976,7 +976,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                         <div 
                           key={file.id} 
                           data-selection-id={`file-${file.id}`} 
-                          className="selectable-item"
+                          className="selectable-item touch-manipulation"
                         >
                         <FileRow
                           name={file.name}
