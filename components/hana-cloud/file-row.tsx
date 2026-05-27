@@ -116,7 +116,7 @@ export function FileRow({
       <div className="flex items-center gap-3 min-w-0">
         {previewUrl && previewType ? (
           <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 bg-black/20 relative flex items-center justify-center">
-            {previewType === 'image' && <img src={previewUrl} alt={name} className="w-full h-full object-cover" />}
+            {previewType === 'image' && <img src={previewUrl} alt={name} className="w-full h-full object-cover" loading="lazy" decoding="async" />}
             {previewType === 'video' && <video src={`${previewUrl}#t=0.1`} className="w-full h-full object-cover" preload="metadata" muted playsInline />}
             {previewType === 'pdf' && (
               <>

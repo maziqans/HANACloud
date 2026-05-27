@@ -952,11 +952,11 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                         onPermanentDelete={() => requestDelete(file.id, true)}
                         canEdit={file.can_edit !== false}
                         previewUrl={
-                          ['image', 'video', 'pdf'].includes(getPreviewType(file.name) || '')
-                            ? `${api.getBaseUrl()}/${getPreviewType(file.name) === 'image' ? 'thumbnail' : 'download'}/${file.id}/?token=${getToken()}`
+                          getPreviewType(file.name) === 'image'
+                            ? `${api.getBaseUrl()}/thumbnail/${file.id}/?token=${getToken()}`
                             : undefined
                         }
-                        previewType={getPreviewType(file.name) || undefined}
+                        previewType={getPreviewType(file.name) === 'image' ? 'image' : undefined}
                       />
                       </div>
                     ))}
@@ -996,11 +996,11 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                           onPermanentDelete={() => requestDelete(file.id, true)}
                           canEdit={file.can_edit !== false}
                         previewUrl={
-                          ['image', 'video', 'pdf'].includes(getPreviewType(file.name) || '')
-                            ? `${api.getBaseUrl()}/${getPreviewType(file.name) === 'image' ? 'thumbnail' : 'download'}/${file.id}/?token=${getToken()}`
+                          getPreviewType(file.name) === 'image'
+                            ? `${api.getBaseUrl()}/thumbnail/${file.id}/?token=${getToken()}`
                             : undefined
                         }
-                        previewType={getPreviewType(file.name) || undefined}
+                        previewType={getPreviewType(file.name) === 'image' ? 'image' : undefined}
                         />
                         </div>
                       ))}

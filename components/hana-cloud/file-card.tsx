@@ -94,7 +94,7 @@ export function FileCard({
       <div className="w-full aspect-[4/3] mb-3 flex items-center justify-center">
         {previewUrl && previewType ? (
           <div className="w-full h-full rounded-xl overflow-hidden bg-black/20 flex items-center justify-center relative">
-            {previewType === 'image' && <img src={previewUrl} alt={name} className="w-full h-full object-cover" />}
+            {previewType === 'image' && <img src={previewUrl} alt={name} className="w-full h-full object-cover" loading="lazy" decoding="async" />}
             {previewType === 'video' && <video src={`${previewUrl}#t=0.1`} className="w-full h-full object-cover" preload="metadata" muted playsInline />}
             {previewType === 'pdf' && (
               <>
