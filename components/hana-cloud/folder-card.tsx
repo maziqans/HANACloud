@@ -1,5 +1,6 @@
 "use client"
 
+import React from "react"
 import { Folder, MoreHorizontal } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -11,7 +12,7 @@ interface FolderCardProps {
   onSelect?: () => void
 }
 
-export function FolderCard({ name, itemCount = 0, selected, onClick, onSelect }: FolderCardProps) {
+export const FolderCard = React.memo(function FolderCard({ name, itemCount = 0, selected, onClick, onSelect }: FolderCardProps) {
   return (
     <div
       onClick={onClick}
@@ -71,4 +72,4 @@ export function FolderCard({ name, itemCount = 0, selected, onClick, onSelect }:
       </button>
     </div>
   )
-}
+})

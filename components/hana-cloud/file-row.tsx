@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import NextImage from "next/image"
 import { FileText, Image as ImageIcon, FileVideo, FileAudio, File, MoreHorizontal, Star } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -58,7 +58,7 @@ const fileStyles: Record<string, { icon: string; bg: string }> = {
   },
 }
 
-export function FileRow({ 
+export const FileRow = React.memo(function FileRow({ 
   name, 
   type = "default", 
   size = "—", 
@@ -130,6 +130,7 @@ export function FileRow({
                   src={previewUrl} 
                   alt={name} 
                   fill
+                  loading="eager"
                   sizes="32px"
                   className={cn("object-cover transition-opacity duration-300", isImageLoaded ? "opacity-100" : "opacity-0")}
                   onLoad={() => setIsImageLoaded(true)}
@@ -193,4 +194,4 @@ export function FileRow({
       </div>
     </div>
   )
-}
+})

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import NextImage from "next/image"
 import { FileText, Image as ImageIcon, FileVideo, FileAudio, File, MoreHorizontal, Star } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -57,7 +57,7 @@ const fileStyles: Record<string, { icon: string; bg: string }> = {
   },
 }
 
-export function FileCard({ 
+export const FileCard = React.memo(function FileCard({ 
   name, 
   type = "default", 
   size = "—",
@@ -108,6 +108,7 @@ export function FileCard({
                   src={previewUrl} 
                   alt={name} 
                   fill
+                  loading="eager"
                   sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, (max-width: 1280px) 20vw, 16vw"
                   className={cn("object-cover transition-opacity duration-300", isImageLoaded ? "opacity-100" : "opacity-0")}
                   onLoad={() => setIsImageLoaded(true)}
@@ -193,4 +194,4 @@ export function FileCard({
       </div>
     </div>
   )
-}
+})
