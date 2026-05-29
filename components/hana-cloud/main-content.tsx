@@ -70,12 +70,11 @@ const chunk = <T,>(arr: T[], size: number) =>
     arr.slice(i * size, i * size + size)
   );
 
-const useGridColumns = () => {
+const useGridColumns = (containerRef: React.RefObject<HTMLDivElement | null>) => {
   const [columns, setColumns] = useState(2);
 
   useEffect(() => {
-    const calculateColumns = () => {
-      const width = window.innerWidth;
+    const calculateColumns = (width: number) => {
       if (width >= 1280) return 6; // xl
       if (width >= 1024) return 5; // lg
       if (width >= 768) return 4; // md
@@ -83,14 +82,14 @@ const useGridColumns = () => {
       return 2; // default
     };
 
-    const handleResize = () => {
-      setColumns(calculateColumns());
-    };
+    const target = containerRef?.current || document.documentElement;
+    const observer = new ResizeObserver((entries) => {
+      if (entries[0]) setColumns(calculateColumns(entries[0].contentRect.width));
+    });
 
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [containerRef]);
 
   return columns;
 };
@@ -596,7 +595,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
   const files = useMemo(() => sortedItems.filter((item) => item.item_type === "FILE"), [sortedItems]);
 
   // --- Virtualization Setup ---
-  const columnCount = useGridColumns();
+  const columnCount = useGridColumns(scrollContainerRef);
   const gridItems = useMemo(() => [...folders, ...files], [folders, files]);
   const gridRows = useMemo(() => view === 'grid' ? chunk(gridItems, columnCount) : [], [gridItems, columnCount, view]);
 
@@ -1001,22 +1000,25 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
             >
               {rowVirtualizer.getVirtualItems().map((virtualRow) => {
                 const rowItems = gridRows[virtualRow.index];
-                return (
-                  <div
-                    key={virtualRow.key}
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
-                      transform: `translateY(${virtualRow.start}px)`,
-                    }}
-                    className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4"
-                  >
-                    {rowItems.map((item) => (
-                      item.item_type === 'FOLDER' ? (
+                if (!rowItems) return null;
+                
+                return rowItems.map((item, localIndex) => {
+                  const index = virtualRow.index * columnCount + localIndex;
+                  
+                  return (
+                    <div
+                      key={item.id}
+                      style={{
+                        position: 'absolute',
+                        top: `${Math.floor(index / columnCount) * 240}px`,
+                        left: `${(index % columnCount) * (100 / columnCount)}%`,
+                        width: `${100 / columnCount}%`,
+                        height: '240px',
+                        padding: '8px',
+                      }}
+                    >
+                      {item.item_type === 'FOLDER' ? (
                         <MemoizedGridFolder
-                          key={item.id}
                           item={item}
                           selected={selectedItems.has(`folder-${item.id}`)}
                           activeSection={activeSection}
@@ -1030,7 +1032,6 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                         />
                       ) : (
                         <MemoizedGridFile
-                          key={item.id}
                           item={item}
                           selected={selectedItems.has(`file-${item.id}`)}
                           activeSection={activeSection}
@@ -1044,10 +1045,10 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                           onRestore={handleRestore}
                           onPermanentDelete={requestDelete}
                         />
-                      )
-                    ))}
-                  </div>
-                );
+                      )}
+                    </div>
+                  );
+                });
               })}
             </div>
           ) : (
