@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
-import { FileText, Image, FileVideo, FileAudio, File, MoreHorizontal, Star } from "lucide-react"
+import { useState, useEffect } from "react"
+import NextImage from "next/image"
+import { FileText, Image as ImageIcon, FileVideo, FileAudio, File, MoreHorizontal, Star } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface FileRowProps {
@@ -28,7 +29,7 @@ interface FileRowProps {
 
 const fileIcons: Record<string, React.ElementType> = {
   document: FileText,
-  image: Image,
+  image: ImageIcon,
   video: FileVideo,
   audio: FileAudio,
   default: File,
@@ -81,6 +82,12 @@ export function FileRow({
   const Icon = fileIcons[type] || fileIcons.default
   const styles = fileStyles[type] || fileStyles.default
   const [menuOpen, setMenuOpen] = useState(false)
+  const [isImageLoaded, setIsImageLoaded] = useState(false)
+
+  // Reset the loaded state when virtualization recycles the DOM node for a new image
+  useEffect(() => {
+    setIsImageLoaded(false)
+  }, [previewUrl])
 
   return (
     <div
@@ -116,7 +123,19 @@ export function FileRow({
       <div className="flex items-center gap-3 min-w-0">
         {previewUrl && previewType ? (
           <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 bg-black/20 relative flex items-center justify-center">
-            {previewType === 'image' && <img src={previewUrl} alt={name} className="w-full h-full object-cover" loading="lazy" decoding="async" />}
+            {previewType === 'image' && (
+              <>
+                {!isImageLoaded && <div className="absolute inset-0 bg-secondary animate-pulse" />}
+                <NextImage 
+                  src={previewUrl} 
+                  alt={name} 
+                  fill
+                  sizes="32px"
+                  className={cn("object-cover transition-opacity duration-300", isImageLoaded ? "opacity-100" : "opacity-0")}
+                  onLoad={() => setIsImageLoaded(true)}
+                />
+              </>
+            )}
             {previewType === 'video' && <video src={`${previewUrl}#t=0.1`} className="w-full h-full object-cover" preload="metadata" muted playsInline />}
             {previewType === 'pdf' && (
               <>

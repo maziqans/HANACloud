@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
-import { FileText, Image, FileVideo, FileAudio, File, MoreHorizontal, Star } from "lucide-react"
+import { useState, useEffect } from "react"
+import NextImage from "next/image"
+import { FileText, Image as ImageIcon, FileVideo, FileAudio, File, MoreHorizontal, Star } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface FileCardProps {
@@ -27,7 +28,7 @@ interface FileCardProps {
 
 const fileIcons: Record<string, React.ElementType> = {
   document: FileText,
-  image: Image,
+  image: ImageIcon,
   video: FileVideo,
   audio: FileAudio,
   default: File,
@@ -79,6 +80,12 @@ export function FileCard({
   const Icon = fileIcons[type] || fileIcons.default
   const styles = fileStyles[type] || fileStyles.default
   const [menuOpen, setMenuOpen] = useState(false)
+  const [isImageLoaded, setIsImageLoaded] = useState(false)
+
+  // Reset the loaded state when virtualization recycles the DOM node for a new image
+  useEffect(() => {
+    setIsImageLoaded(false)
+  }, [previewUrl])
 
   return (
     <div
@@ -94,7 +101,19 @@ export function FileCard({
       <div className="w-full aspect-[4/3] mb-3 flex items-center justify-center">
         {previewUrl && previewType ? (
           <div className="w-full h-full rounded-xl overflow-hidden bg-black/20 flex items-center justify-center relative">
-            {previewType === 'image' && <img src={previewUrl} alt={name} className="w-full h-full object-cover" loading="lazy" decoding="async" />}
+            {previewType === 'image' && (
+              <>
+                {!isImageLoaded && <div className="absolute inset-0 bg-secondary animate-pulse" />}
+                <NextImage 
+                  src={previewUrl} 
+                  alt={name} 
+                  fill
+                  sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, (max-width: 1280px) 20vw, 16vw"
+                  className={cn("object-cover transition-opacity duration-300", isImageLoaded ? "opacity-100" : "opacity-0")}
+                  onLoad={() => setIsImageLoaded(true)}
+                />
+              </>
+            )}
             {previewType === 'video' && <video src={`${previewUrl}#t=0.1`} className="w-full h-full object-cover" preload="metadata" muted playsInline />}
             {previewType === 'pdf' && (
               <>

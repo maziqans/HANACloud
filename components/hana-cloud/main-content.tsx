@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from "react"
 import * as api from "@/lib/api"
+import { useVirtualizer } from "@tanstack/react-virtual"
 import { SearchBar } from "./search-bar"
 import { ViewToggle } from "./view-toggle"
 import { FolderCard } from "./folder-card"
@@ -54,26 +55,69 @@ const getUniqueFilename = (filename: string, existingNames: string[]) => {
   return newName
 }
 
+const chunk = <T,>(arr: T[], size: number) =>
+  Array.from({ length: Math.ceil(arr.length / size) }, (v, i) =>
+    arr.slice(i * size, i * size + size)
+  );
+
+const useGridColumns = () => {
+  const [columns, setColumns] = useState(2);
+
+  useEffect(() => {
+    const calculateColumns = () => {
+      const width = window.innerWidth;
+      if (width >= 1280) return 6; // xl
+      if (width >= 1024) return 5; // lg
+      if (width >= 768) return 4; // md
+      if (width >= 640) return 3; // sm
+      return 2; // default
+    };
+
+    const handleResize = () => {
+      setColumns(calculateColumns());
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  return columns;
+};
+
+const itemCache: Record<string, CloudItem[]> = {}
+const scrollCache: Record<string, number> = {}
+
+let globalStateCache = {
+  view: "grid" as "grid" | "list",
+  searchQuery: "",
+  sortBy: "name" as "name" | "date" | "size",
+  sortDirection: "asc" as "asc" | "desc",
+  currentParentId: null as string | null,
+  navStack: [] as {id: string, name: string, can_edit: boolean}[],
+}
+
 interface MainContentProps {
   activeSection?: string
   user?: any
 }
 
 export function MainContent({ activeSection = "My Drive", user }: MainContentProps) {
-  const [view, setView] = useState<"grid" | "list">("grid")
-  const [searchQuery, setSearchQuery] = useState("")
-  const [sortBy, setSortBy] = useState<"name" | "date" | "size">("name")
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
+  const [view, setView] = useState<"grid" | "list">(globalStateCache.view)
+  const [searchQuery, setSearchQuery] = useState(globalStateCache.searchQuery)
+  const [sortBy, setSortBy] = useState<"name" | "date" | "size">(globalStateCache.sortBy)
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">(globalStateCache.sortDirection)
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   const [currentItems, setCurrentItems] = useState<CloudItem[]>([])
   const [uploads, setUploads] = useState<{ id: string, filename: string, progress: number, complete: boolean, error?: string }[]>([])
   const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false)
   const [newFolderName, setNewFolderName] = useState("")
-  const [currentParentId, setCurrentParentId] = useState<string | null>(null)
-  const [navStack, setNavStack] = useState<{id: string, name: string, can_edit: boolean}[]>([])
+  const [currentParentId, setCurrentParentId] = useState<string | null>(globalStateCache.currentParentId)
+  const [navStack, setNavStack] = useState<{id: string, name: string, can_edit: boolean}[]>(globalStateCache.navStack)
   const [isLoading, setIsLoading] = useState(true)
   const [isDragging, setIsDragging] = useState(false)
   const fetchIdRef = useRef(0)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
   
   const [selectionBox, setSelectionBox] = useState<{ startX: number, startY: number, endX: number, endY: number } | null>(null)
   const isSelecting = useRef(false)
@@ -139,6 +183,15 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
     setSelectedItems(new Set());
   }
   
+  useEffect(() => {
+    globalStateCache.view = view;
+    globalStateCache.searchQuery = searchQuery;
+    globalStateCache.sortBy = sortBy;
+    globalStateCache.sortDirection = sortDirection;
+    globalStateCache.currentParentId = currentParentId;
+    globalStateCache.navStack = navStack;
+  }, [view, searchQuery, sortBy, sortDirection, currentParentId, navStack]);
+
   const currentFolderCanEdit = useMemo(() => {
     if (activeSection === "Trash" || activeSection === "Recent" || activeSection === "Starred") return false;
     if (activeSection === "Shared with me" && !currentParentId) return false;
@@ -151,9 +204,20 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
     window.dispatchEvent(new CustomEvent('canEditChange', { detail: currentFolderCanEdit }));
   }, [currentFolderCanEdit]);
 
+  const getCacheKey = () => `${activeSection}-${currentParentId || 'root'}`;
+
   const loadItems = async (isBackground = false) => {
+    const key = getCacheKey();
     const fetchId = ++fetchIdRef.current;
-    if (!isBackground) setIsLoading(true)
+    
+    if (itemCache[key] && !isBackground) {
+      setCurrentItems(itemCache[key]);
+      setIsLoading(false);
+      isBackground = true;
+    } else if (!isBackground) {
+      setIsLoading(true);
+    }
+
     try {
       let data;
       if (currentParentId) {
@@ -171,6 +235,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
       }
 
       if (fetchId === fetchIdRef.current && Array.isArray(data)) {
+        itemCache[key] = data;
         setCurrentItems(data)
       }
     } catch (error) {
@@ -301,6 +366,13 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
 
     setSelectedItems(newSelected);
   }, [selectionBox?.endX, selectionBox?.endY]);
+
+  useEffect(() => {
+    if (scrollContainerRef.current && !isLoading) {
+      const savedScroll = scrollCache[getCacheKey()] || 0;
+      scrollContainerRef.current.scrollTop = savedScroll;
+    }
+  }, [activeSection, currentParentId, isLoading]);
 
   const processUploadFiles = async (files: File[]) => {
     if (!files.length) return
@@ -458,6 +530,19 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
 
   const folders = sortedItems.filter((item) => item.item_type === "FOLDER")
   const files = sortedItems.filter((item) => item.item_type === "FILE")
+
+  // --- Virtualization Setup ---
+  const columnCount = useGridColumns();
+  const gridItems = [...folders, ...files];
+  const gridRows = view === 'grid' ? chunk(gridItems, columnCount) : [];
+
+  const rowVirtualizer = useVirtualizer({
+    count: gridRows.length,
+    getScrollElement: () => scrollContainerRef.current,
+    estimateSize: () => 240, // Approx height of a grid item row. Tune if needed.
+    overscan: 5,
+  });
+  // --- End Virtualization Setup ---
 
   const handleDownload = (id: string) => {
     const baseUrl = api.getBaseUrl()
@@ -794,8 +879,10 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
 
       {/* Content Area */}
       <div 
+        ref={scrollContainerRef}
         className="flex-1 overflow-auto px-4 md:px-8 py-4 md:py-6"
         onMouseDown={handleMouseDown}
+        onScroll={(e) => { scrollCache[getCacheKey()] = e.currentTarget.scrollTop; }}
       >
         {/* Selection Action Bar */}
         {selectedItems.size > 0 && (
@@ -842,174 +929,107 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
             <p className="text-sm mt-2">{activeSection === "Recent" ? "Open some files to see them here." : activeSection === "Starred" ? "Star files and folders to see them here." : activeSection === "Shared with me" ? "Nothing has been shared with you yet." : "Upload files or create folders to get started."}</p>
           </div>
         ) : (
-          <>
-            {/* Folders Section */}
-            {folders.length > 0 && (
-              <section className="mb-8">
-                <h2 className="text-sm font-medium text-muted-foreground mb-4">
-                  Folders
-                </h2>
-                {view === "grid" ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4">
-                    {folders.map((folder) => (
-                      <div 
-                        key={folder.id} 
-                        onDoubleClick={() => handleDoubleClick(folder)}
-                        className="relative group selectable-item touch-manipulation"
-                        data-selection-id={`folder-${folder.id}`}
-                      >
-                        <FolderCard
-                          name={folder.name}
-                          itemCount={folder.item_count || 0}
-                          selected={selectedItems.has(`folder-${folder.id}`)}
-                          onSelect={() => toggleSelection(`folder-${folder.id}`)}
-                        />
-                        {folder.is_starred && (
-                          <div className="absolute top-3 right-10 p-1.5 text-yellow-500 pointer-events-none">
-                            <Star className="w-4 h-4 fill-current" />
-                          </div>
-                        )}
-                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={(e) => { e.stopPropagation(); const el = document.getElementById(`folder-menu-${folder.id}`); if(el) el.classList.toggle('hidden'); }} className="p-1.5 rounded-lg hover:bg-secondary bg-card/50 backdrop-blur border border-border">
-                            <MoreHorizontal className="w-4 h-4" />
-                          </button>
-                          <div id={`folder-menu-${folder.id}`} className="hidden absolute right-0 top-8 w-32 bg-popover border border-border rounded-lg shadow-lg z-50 py-1" onMouseLeave={(e) => e.currentTarget.classList.add('hidden')}>
-                            {activeSection === "Trash" ? (
-                              <>
-                                <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-foreground" onClick={(e) => { e.stopPropagation(); api.moveToTrash(folder.id, false).then(() => { loadItems(true); window.dispatchEvent(new Event("storageUpdated")); }) }}>Restore</button>
-                                <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-destructive" onClick={(e) => { e.stopPropagation(); requestDelete(folder.id, true); }}>Delete Forever</button>
-                              </>
-                            ) : (
-                              <>
-                                <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); toggleStar(folder.id, !folder.is_starred); }}>{folder.is_starred ? "Remove from Starred" : "Add to Starred"}</button>
-                                <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); handleShare(folder.id); }}>Share</button>
-                                {folder.can_edit !== false && <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-destructive transition-colors" onClick={(e) => { e.stopPropagation(); requestDelete(folder.id, false); }}>Move to Trash</button>}
-                              </>
-                            )}
+          view === 'grid' ? (
+            <div
+              style={{
+                height: `${rowVirtualizer.getTotalSize()}px`,
+                width: '100%',
+                position: 'relative',
+              }}
+            >
+              {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                const rowItems = gridRows[virtualRow.index];
+                return (
+                  <div
+                    key={virtualRow.key}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                    className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4"
+                  >
+                    {rowItems.map((item) => (
+                      item.item_type === 'FOLDER' ? (
+                        <div key={item.id} onDoubleClick={() => handleDoubleClick(item)} className="relative group selectable-item touch-manipulation" data-selection-id={`folder-${item.id}`}>
+                          <FolderCard name={item.name} itemCount={item.item_count || 0} selected={selectedItems.has(`folder-${item.id}`)} onSelect={() => toggleSelection(`folder-${item.id}`)} />
+                          {item.is_starred && <div className="absolute top-3 right-10 p-1.5 text-yellow-500 pointer-events-none"><Star className="w-4 h-4 fill-current" /></div>}
+                          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={(e) => { e.stopPropagation(); const el = document.getElementById(`folder-menu-${item.id}`); if(el) el.classList.toggle('hidden'); }} className="p-1.5 rounded-lg hover:bg-secondary bg-card/50 backdrop-blur border border-border"><MoreHorizontal className="w-4 h-4" /></button>
+                            <div id={`folder-menu-${item.id}`} className="hidden absolute right-0 top-8 w-32 bg-popover border border-border rounded-lg shadow-lg z-50 py-1" onMouseLeave={(e) => e.currentTarget.classList.add('hidden')}>
+                              {activeSection === "Trash" ? ( <> <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-foreground" onClick={(e) => { e.stopPropagation(); api.moveToTrash(item.id, false).then(() => { loadItems(true); window.dispatchEvent(new Event("storageUpdated")); }) }}>Restore</button> <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-destructive" onClick={(e) => { e.stopPropagation(); requestDelete(item.id, true); }}>Delete Forever</button> </> ) : ( <> <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); toggleStar(item.id, !item.is_starred); }}>{item.is_starred ? "Remove from Starred" : "Add to Starred"}</button> <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); handleShare(item.id); }}>Share</button> {item.can_edit !== false && <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-destructive transition-colors" onClick={(e) => { e.stopPropagation(); requestDelete(item.id, false); }}>Move to Trash</button>} </> )}
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      ) : (
+                        <div key={item.id} data-selection-id={`file-${item.id}`} className="selectable-item h-full touch-manipulation">
+                          <FileCard
+                            name={item.name}
+                            type={getFileType(item.name)}
+                            size={formatBytes(item.size_bytes)}
+                            selected={selectedItems.has(`file-${item.id}`)}
+                            onSelect={() => toggleSelection(`file-${item.id}`)}
+                            onDoubleClick={() => handleDoubleClick(item)}
+                            isStarred={item.is_starred}
+                            onToggleStar={() => toggleStar(item.id, !item.is_starred)}
+                            isTrash={activeSection === "Trash"}
+                            onDownload={() => handleDownload(item.id)}
+                            onShare={() => handleShare(item.id)}
+                            onDelete={() => requestDelete(item.id, false)}
+                            onRestore={async () => { await api.moveToTrash(item.id, false); loadItems(true); window.dispatchEvent(new Event("storageUpdated")); }}
+                            onPermanentDelete={() => requestDelete(item.id, true)}
+                            canEdit={item.can_edit !== false}
+                            previewUrl={getPreviewType(item.name) === 'image' ? `${api.getBaseUrl()}/thumbnail/${item.id}/?token=${getToken()}` : undefined}
+                            previewType={getPreviewType(item.name) === 'image' ? 'image' : undefined}
+                          />
+                        </div>
+                      )
                     ))}
                   </div>
-                ) : (
+                );
+              })}
+            </div>
+          ) : (
+            <>
+              {/* List View - Folders */}
+              {folders.length > 0 && (
+                <section className="mb-8">
+                  <h2 className="text-sm font-medium text-muted-foreground mb-4">Folders</h2>
                   <div className="space-y-1">
                     {folders.map((folder) => (
                       <div key={folder.id} data-selection-id={`folder-${folder.id}`} className="selectable-item touch-manipulation">
-                      <FileRow
-                        name={folder.name}
-                        type="default"
-                        size={folder.item_count === 1 ? "1 item" : `${folder.item_count || 0} items`}
-                        modified={folder.updated_at ? new Date(folder.updated_at).toLocaleDateString() : "—"}
-                        selected={selectedItems.has(`folder-${folder.id}`)}
-                        onSelect={() => toggleSelection(`folder-${folder.id}`)}
-                        onDoubleClick={() => handleDoubleClick(folder)}
-                        isStarred={folder.is_starred}
-                        onToggleStar={() => toggleStar(folder.id, !folder.is_starred)}
-                        isTrash={activeSection === "Trash"}
-                        onDelete={() => requestDelete(folder.id, false)}
-                        onRestore={async () => { await api.moveToTrash(folder.id, false); loadItems(true); window.dispatchEvent(new Event("storageUpdated")); }}
-                        onPermanentDelete={() => requestDelete(folder.id, true)}
-                        onShare={() => handleShare(folder.id)}
-                        canEdit={folder.can_edit !== false}
-                        onDownload={() => setGenericAlert({ title: "Coming Soon", message: "Downloading entire folders is not currently supported." })}
-                        onDownload={() => setGenericAlert({ title: "Coming Soon", message: "Downloading entire folders is not currently supported." })}
-                      />
+                        <FileRow name={folder.name} type="default" size={folder.item_count === 1 ? "1 item" : `${folder.item_count || 0} items`} modified={folder.updated_at ? new Date(folder.updated_at).toLocaleDateString() : "—"} selected={selectedItems.has(`folder-${folder.id}`)} onSelect={() => toggleSelection(`folder-${folder.id}`)} onDoubleClick={() => handleDoubleClick(folder)} isStarred={folder.is_starred} onToggleStar={() => toggleStar(folder.id, !folder.is_starred)} isTrash={activeSection === "Trash"} onDelete={() => requestDelete(folder.id, false)} onRestore={async () => { await api.moveToTrash(folder.id, false); loadItems(true); window.dispatchEvent(new Event("storageUpdated")); }} onPermanentDelete={() => requestDelete(folder.id, true)} onShare={() => handleShare(folder.id)} canEdit={folder.can_edit !== false} onDownload={() => setGenericAlert({ title: "Coming Soon", message: "Downloading entire folders is not currently supported." })} />
                       </div>
                     ))}
                   </div>
-                )}
-              </section>
-            )}
-
-            {/* Files Section */}
-            {files.length > 0 && (
-              <section>
-                <h2 className="text-sm font-medium text-muted-foreground mb-4">
-                  Files
-                </h2>
-                {view === "grid" ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4">
-                    {files.map((file) => (
-                      <div 
-                        key={file.id} 
-                        data-selection-id={`file-${file.id}`} 
-                        className="selectable-item h-full touch-manipulation"
-                      >
-                      <FileCard
-                        name={file.name}
-                        type={getFileType(file.name)}
-                        size={formatBytes(file.size_bytes)}
-                        selected={selectedItems.has(`file-${file.id}`)}
-                        onSelect={() => toggleSelection(`file-${file.id}`)}
-                        onDoubleClick={() => handleDoubleClick(file)}
-                        isStarred={file.is_starred}
-                        onToggleStar={() => toggleStar(file.id, !file.is_starred)}
-                        isTrash={activeSection === "Trash"}
-                        onDownload={() => handleDownload(file.id)}
-                        onShare={() => handleShare(file.id)}
-                        onDelete={() => requestDelete(file.id, false)}
-                        onRestore={async () => { await api.moveToTrash(file.id, false); loadItems(true); window.dispatchEvent(new Event("storageUpdated")); }}
-                        onPermanentDelete={() => requestDelete(file.id, true)}
-                        canEdit={file.can_edit !== false}
-                        previewUrl={
-                          getPreviewType(file.name) === 'image'
-                            ? `${api.getBaseUrl()}/thumbnail/${file.id}/?token=${getToken()}`
-                            : undefined
-                        }
-                        previewType={getPreviewType(file.name) === 'image' ? 'image' : undefined}
-                      />
-                      </div>
-                    ))}
-                  </div>
-                ) : (
+                </section>
+              )}
+              {/* List View - Files */}
+              {files.length > 0 && (
+                <section>
+                  <h2 className="text-sm font-medium text-muted-foreground mb-4">Files</h2>
                   <div className="bg-card rounded-2xl border border-border overflow-hidden">
-                    {/* Table Header */}
-                <div className="grid grid-cols-[auto_1fr_80px_40px] sm:grid-cols-[auto_1fr_100px_140px_40px] gap-4 items-center px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/50">
+                    <div className="grid grid-cols-[auto_1fr_80px_40px] sm:grid-cols-[auto_1fr_100px_140px_40px] gap-4 items-center px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/50">
                       <div className="w-5" />
                       <div>Name</div>
                       <div className="text-right">Size</div>
-                  <div className="hidden sm:block text-right">Modified</div>
+                      <div className="hidden sm:block text-right">Modified</div>
                       <div />
                     </div>
                     <div className="divide-y divide-border/50">
                       {files.map((file) => (
-                        <div 
-                          key={file.id} 
-                          data-selection-id={`file-${file.id}`} 
-                          className="selectable-item touch-manipulation"
-                        >
-                        <FileRow
-                          name={file.name}
-                          type={getFileType(file.name)}
-                          size={formatBytes(file.size_bytes)}
-                          modified={file.updated_at ? new Date(file.updated_at).toLocaleDateString() : "—"}
-                          selected={selectedItems.has(`file-${file.id}`)}
-                          onSelect={() => toggleSelection(`file-${file.id}`)}
-                          onDoubleClick={() => handleDoubleClick(file)}
-                          isStarred={file.is_starred}
-                          onToggleStar={() => toggleStar(file.id, !file.is_starred)}
-                          isTrash={activeSection === "Trash"}
-                          onDownload={() => handleDownload(file.id)}
-                          onShare={() => handleShare(file.id)}
-                          onDelete={() => requestDelete(file.id, false)}
-                          onRestore={async () => { await api.moveToTrash(file.id, false); loadItems(true); window.dispatchEvent(new Event("storageUpdated")); }}
-                          onPermanentDelete={() => requestDelete(file.id, true)}
-                          canEdit={file.can_edit !== false}
-                        previewUrl={
-                          getPreviewType(file.name) === 'image'
-                            ? `${api.getBaseUrl()}/thumbnail/${file.id}/?token=${getToken()}`
-                            : undefined
-                        }
-                        previewType={getPreviewType(file.name) === 'image' ? 'image' : undefined}
-                        />
+                        <div key={file.id} data-selection-id={`file-${file.id}`} className="selectable-item touch-manipulation">
+                          <FileRow name={file.name} type={getFileType(file.name)} size={formatBytes(file.size_bytes)} modified={file.updated_at ? new Date(file.updated_at).toLocaleDateString() : "—"} selected={selectedItems.has(`file-${file.id}`)} onSelect={() => toggleSelection(`file-${file.id}`)} onDoubleClick={() => handleDoubleClick(file)} isStarred={file.is_starred} onToggleStar={() => toggleStar(file.id, !file.is_starred)} isTrash={activeSection === "Trash"} onDownload={() => handleDownload(file.id)} onShare={() => handleShare(file.id)} onDelete={() => requestDelete(file.id, false)} onRestore={async () => { await api.moveToTrash(file.id, false); loadItems(true); window.dispatchEvent(new Event("storageUpdated")); }} onPermanentDelete={() => requestDelete(file.id, true)} canEdit={file.can_edit !== false} previewUrl={ getPreviewType(file.name) === 'image' ? `${api.getBaseUrl()}/thumbnail/${file.id}/?token=${getToken()}` : undefined } previewType={getPreviewType(file.name) === 'image' ? 'image' : undefined} />
                         </div>
                       ))}
                     </div>
                   </div>
-                )}
-              </section>
-            )}
-          </>
+                </section>
+              )}
+            </>
+          )
         )}
       </div>
 
