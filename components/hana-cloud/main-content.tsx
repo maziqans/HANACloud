@@ -802,8 +802,8 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
       <input type="file" multiple webkitdirectory="true" className="hidden" id="folder-upload" onChange={handleUpload} />
 
       {/* Header */}
-      <header className="px-4 md:px-8 py-4 md:py-6 border-b border-border bg-card/50">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 md:mb-6 relative z-30">
+      <header className="px-4 md:px-8 py-4 md:py-6 border-b border-border bg-card/50 relative z-50">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 md:mb-6 relative z-50">
           <div className="flex items-center gap-3 w-full md:max-w-xl md:flex-1">
             <button 
               onClick={() => window.dispatchEvent(new Event('toggleMobileSidebar'))}
@@ -940,7 +940,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
 
       {/* Selection Action Bar (Moved outside to prevent offset issues with virtualizer) */}
       {selectedItems.size > 0 && (
-        <div className="mx-4 md:mx-8 mt-4 bg-white/10 backdrop-blur-2xl border border-white/20 text-white px-4 md:px-8 py-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-[0_10px_40px_rgba(0,0,0,0.3)] animate-in slide-in-from-top-2 relative z-20 shrink-0">
+        <div className="mx-4 md:mx-8 mt-4 bg-white/10 backdrop-blur-2xl border border-white/20 text-white px-4 md:px-8 py-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-[0_10px_40px_rgba(0,0,0,0.3)] animate-in slide-in-from-top-2 relative z-40 shrink-0">
             <span className="font-light tracking-wider text-base md:text-lg shrink-0">{selectedItems.size} document(s) selected</span>
             {activeSection === "Trash" ? (
               <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-xs sm:text-sm font-semibold tracking-widest uppercase">
@@ -972,7 +972,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
         {/* Content Area / Virtualized Container */}
         <div 
           ref={scrollContainerRef}
-          className="flex-1 overflow-y-auto relative px-4 md:px-8 py-4 md:py-6"
+          className="flex-1 overflow-y-auto relative z-0 px-4 md:px-8 py-4 md:py-6"
           onMouseDown={handleMouseDown}
           onScroll={(e) => { scrollCache[getCacheKey()] = e.currentTarget.scrollTop; }}
         >
@@ -1597,6 +1597,14 @@ const FilePreviewModal = React.memo(() => {
     return () => window.removeEventListener('openPreview', handleOpen);
   }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPreviewItem(null);
+    };
+    if (previewItem) window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [previewItem]);
+
   if (!previewItem) return null;
 
   const getToken = () => typeof window !== "undefined" ? (localStorage.getItem("access_token") || localStorage.getItem("token") || "") : "";
@@ -1614,12 +1622,12 @@ const FilePreviewModal = React.memo(() => {
   const previewType = getPreviewType(previewItem.name);
 
   return (
-    <div className="fixed inset-0 bg-background/95 backdrop-blur-sm z-[100] flex items-center justify-center animate-in fade-in">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center animate-in fade-in zoom-in-95 duration-200">
       <div className="absolute top-6 right-6 flex items-center gap-4 z-50">
-        <button onClick={() => { handleDownload(previewItem.id); setPreviewItem(null); }} className="px-4 py-2 bg-primary text-primary-foreground rounded-full text-sm font-medium hover:bg-primary/90 transition-colors flex items-center gap-2 shadow-lg">
+        <button onClick={() => { handleDownload(previewItem.id); setPreviewItem(null); }} className="px-4 py-2 bg-white text-slate-900 rounded-full text-sm font-bold tracking-widest uppercase hover:bg-white/90 transition-colors flex items-center gap-2 shadow-lg">
           <Download className="w-4 h-4" /> Download
         </button>
-        <button onClick={() => setPreviewItem(null)} className="p-2 bg-secondary/50 hover:bg-secondary rounded-full text-foreground transition-colors shadow-lg">
+        <button onClick={() => setPreviewItem(null)} className="p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors shadow-lg">
           <X className="w-6 h-6" />
         </button>
       </div>
@@ -1628,9 +1636,9 @@ const FilePreviewModal = React.memo(() => {
         {previewType === 'image' && <img src={`${api.getBaseUrl()}/download/${previewItem.id}/?token=${getToken()}`} alt={previewItem.name} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" />}
         {previewType === 'video' && <video controls autoPlay src={`${api.getBaseUrl()}/download/${previewItem.id}/?token=${getToken()}`} className="max-w-full max-h-full rounded-lg shadow-2xl bg-black" />}
         {previewType === 'audio' && (
-          <div className="bg-card p-10 rounded-3xl shadow-2xl flex flex-col items-center gap-8 w-full max-w-md border border-border">
-            <div className="w-32 h-32 bg-primary/10 rounded-full flex items-center justify-center animate-pulse"><div className="w-16 h-16 bg-primary rounded-full" /></div>
-            <h3 className="text-xl font-medium text-foreground text-center truncate w-full px-4">{previewItem.name}</h3>
+          <div className="bg-black/40 backdrop-blur-md p-10 rounded-3xl shadow-2xl flex flex-col items-center gap-8 w-full max-w-md border border-white/10">
+            <div className="w-32 h-32 bg-white/10 rounded-full flex items-center justify-center animate-pulse"><div className="w-16 h-16 bg-white rounded-full" /></div>
+            <h3 className="text-xl font-medium text-white text-center truncate w-full px-4">{previewItem.name}</h3>
             <audio controls autoPlay src={`${api.getBaseUrl()}/download/${previewItem.id}/?token=${getToken()}`} className="w-full" />
           </div>
         )}
