@@ -94,61 +94,6 @@ const useGridColumns = (containerRef: React.RefObject<HTMLDivElement | null>) =>
   return columns;
 };
 
-const MemoizedGridFolder = React.memo(({ item, selected, activeSection, onDoubleClick, onSelect, onToggleStar, onShare, onDelete, onRestore, onPermanentDelete }: any) => {
-  return (
-    <div onDoubleClick={() => onDoubleClick(item)} className="relative group selectable-item touch-manipulation" data-selection-id={`folder-${item.id}`}>
-      <FolderCard name={item.name} itemCount={item.item_count || 0} selected={selected} onSelect={() => onSelect(`folder-${item.id}`)} />
-      {item.is_starred && <div className="absolute top-3 right-10 p-1.5 text-yellow-500 pointer-events-none"><Star className="w-4 h-4 fill-current" /></div>}
-      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button onClick={(e) => { e.stopPropagation(); const el = document.getElementById(`folder-menu-${item.id}`); if(el) el.classList.toggle('hidden'); }} className="p-1.5 rounded-lg hover:bg-secondary bg-card/50 backdrop-blur border border-border"><MoreHorizontal className="w-4 h-4" /></button>
-        <div id={`folder-menu-${item.id}`} className="hidden absolute right-0 top-8 w-32 bg-popover border border-border rounded-lg shadow-lg z-50 py-1" onMouseLeave={(e) => e.currentTarget.classList.add('hidden')}>
-          {activeSection === "Trash" ? ( <> <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-foreground" onClick={(e) => { e.stopPropagation(); onRestore(item.id); }}>Restore</button> <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-destructive" onClick={(e) => { e.stopPropagation(); onPermanentDelete(item.id, true); }}>Delete Forever</button> </> ) : ( <> <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); onToggleStar(item.id, !item.is_starred); }}>{item.is_starred ? "Remove from Starred" : "Add to Starred"}</button> <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); onShare(item.id); }}>Share</button> {item.can_edit !== false && <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-destructive transition-colors" onClick={(e) => { e.stopPropagation(); onDelete(item.id, false); }}>Move to Trash</button>} </> )}
-        </div>
-      </div>
-    </div>
-  );
-}, (prev, next) => (
-  prev.item.id === next.item.id &&
-  prev.selected === next.selected &&
-  prev.item.is_starred === next.item.is_starred &&
-  prev.item.item_count === next.item.item_count &&
-  prev.item.can_edit === next.item.can_edit &&
-  prev.activeSection === next.activeSection
-));
-
-const MemoizedGridFile = React.memo(({ item, selected, activeSection, previewUrl, onDoubleClick, onSelect, onToggleStar, onDownload, onShare, onDelete, onRestore, onPermanentDelete }: any) => {
-  return (
-    <div data-selection-id={`file-${item.id}`} className="selectable-item h-full touch-manipulation">
-      <FileCard
-        name={item.name}
-        type={getFileType(item.name)}
-        size={formatBytes(item.size_bytes)}
-        selected={selected}
-        onSelect={() => onSelect(`file-${item.id}`)}
-        onDoubleClick={() => onDoubleClick(item)}
-        isStarred={item.is_starred}
-        onToggleStar={() => onToggleStar(item.id, !item.is_starred)}
-        isTrash={activeSection === "Trash"}
-        onDownload={() => onDownload(item.id)}
-        onShare={() => onShare(item.id)}
-        onDelete={() => onDelete(item.id, false)}
-        onRestore={() => onRestore(item.id)}
-        onPermanentDelete={() => onPermanentDelete(item.id, true)}
-        canEdit={item.can_edit !== false}
-        previewUrl={previewUrl}
-        previewType={getPreviewType(item.name) === 'image' ? 'image' : undefined}
-      />
-    </div>
-  );
-}, (prev, next) => (
-  prev.item.id === next.item.id &&
-  prev.selected === next.selected &&
-  prev.item.is_starred === next.item.is_starred &&
-  prev.item.can_edit === next.item.can_edit &&
-  prev.activeSection === next.activeSection &&
-  prev.previewUrl === next.previewUrl
-));
-
 const itemCache: Record<string, CloudItem[]> = {}
 const scrollCache: Record<string, number> = {}
 
@@ -164,21 +109,26 @@ let globalStateCache = {
 interface MainContentProps {
   activeSection?: string
   user?: any
+  initialItems?: CloudItem[]
 }
 
-export function MainContent({ activeSection = "My Drive", user }: MainContentProps) {
+export function MainContent({ activeSection = "My Drive", user, initialItems }: MainContentProps) {
+  if (initialItems && !itemCache['My Drive-root']) {
+    itemCache['My Drive-root'] = initialItems;
+  }
+
   const [view, setView] = useState<"grid" | "list">(globalStateCache.view)
   const [searchQuery, setSearchQuery] = useState(globalStateCache.searchQuery)
   const [sortBy, setSortBy] = useState<"name" | "date" | "size">(globalStateCache.sortBy)
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">(globalStateCache.sortDirection)
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
-  const [currentItems, setCurrentItems] = useState<CloudItem[]>([])
+  const [currentItems, setCurrentItems] = useState<CloudItem[]>(initialItems || [])
   const [uploads, setUploads] = useState<{ id: string, filename: string, progress: number, complete: boolean, error?: string }[]>([])
   const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false)
   const [newFolderName, setNewFolderName] = useState("")
   const [currentParentId, setCurrentParentId] = useState<string | null>(globalStateCache.currentParentId)
   const [navStack, setNavStack] = useState<{id: string, name: string, can_edit: boolean}[]>(globalStateCache.navStack)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(initialItems ? false : true)
   const [isDragging, setIsDragging] = useState(false)
   const fetchIdRef = useRef(0)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -246,6 +196,11 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
     setSelectedItems(new Set());
   }
   
+  const itemsRef = useRef(currentItems);
+  useEffect(() => {
+    itemsRef.current = currentItems;
+  }, [currentItems]);
+
   useEffect(() => {
     globalStateCache.view = view;
     globalStateCache.searchQuery = searchQuery;
@@ -617,8 +572,11 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
     document.body.removeChild(link)
   }, []);
 
-  const handleDoubleClick = useCallback((item: CloudItem) => {
+  const handleDoubleClick = useCallback((id: string) => {
     if (activeSection === "Trash") return;
+    const item = itemsRef.current.find(i => i.id === id);
+    if (!item) return;
+    
     if (item.item_type === "FOLDER") {
       setCurrentParentId(item.id)
       setNavStack(prev => [...prev, { id: item.id, name: item.name, can_edit: item.can_edit ?? false }])
@@ -631,9 +589,13 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
       }
       setTimeout(() => loadItems(true), 500) // silently update recent tab sorting in background
     }
-  }, [activeSection, handleDownload]);
+  }, [activeSection, handleDownload, itemsRef]);
 
-  const handleShare = async (id: string) => {
+  const handleDownloadFolder = useCallback((id: string) => {
+    setGenericAlert({ title: "Coming Soon", message: "Downloading entire folders is not currently supported." });
+  }, []);
+
+  const handleShare = useCallback(async (id: string) => {
     try {
       const data = await api.getShareSettings(id);
       
@@ -652,7 +614,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
       console.error(error);
       setGenericAlert({ title: "Server Error", message: "Failed to access share settings. Make sure your database migrations are applied!" });
     }
-  }
+  }, []);
 
   const saveShareSettings = async (mode: string, perms: {email: string, role: string}[]) => {
     // Optimistic UI Update: instantly apply mode/permission changes without waiting for server
@@ -738,11 +700,11 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
     })
   }, []);
   
-  const toggleStar = async (id: string, is_starred: boolean) => {
+  const toggleStar = useCallback(async (id: string, is_starred: boolean) => {
     await api.toggleStar(id, is_starred);
     await loadItems(true);
     window.dispatchEvent(new Event("storageUpdated"));
-  }
+  }, []);
 
   const executeConfirmAction = async () => {
     if (confirmAction) {
@@ -751,7 +713,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
     }
   };
 
-  const requestDelete = (id: string, isPermanent: boolean) => {
+  const requestDelete = useCallback((id: string, isPermanent: boolean) => {
     setConfirmAction({
       isOpen: true,
       title: isPermanent ? "Delete Forever?" : "Move to Trash?",
@@ -764,7 +726,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
         window.dispatchEvent(new Event("storageUpdated"));
       }
     });
-  };
+  }, []);
 
   const handleDeleteSelected = () => {
     setConfirmAction({
@@ -779,11 +741,11 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
     });
   }
 
-  const handleRestore = async (id: string) => {
+  const handleRestore = useCallback(async (id: string) => {
     await api.moveToTrash(id, false);
     await loadItems(true);
     window.dispatchEvent(new Event("storageUpdated"));
-  };
+  }, []);
 
   const selectedCanEdit = useMemo(() => {
     return Array.from(selectedItems).every(id => {
@@ -1018,12 +980,16 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                       }}
                     >
                       {item.item_type === 'FOLDER' ? (
-                        <MemoizedGridFolder
-                          item={item}
+                        <FolderCard
+                          id={item.id}
+                          name={item.name}
+                          itemCount={item.item_count || 0}
                           selected={selectedItems.has(`folder-${item.id}`)}
-                          activeSection={activeSection}
-                          onDoubleClick={handleDoubleClick}
+                          isTrash={activeSection === "Trash"}
+                          isStarred={item.is_starred}
+                          canEdit={item.can_edit !== false}
                           onSelect={toggleSelection}
+                          onDoubleClick={handleDoubleClick}
                           onToggleStar={toggleStar}
                           onShare={handleShare}
                           onDelete={requestDelete}
@@ -1031,19 +997,25 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                           onPermanentDelete={requestDelete}
                         />
                       ) : (
-                        <MemoizedGridFile
-                          item={item}
+                        <FileCard
+                          id={item.id}
+                          name={item.name}
+                          type={getFileType(item.name)}
+                          size={formatBytes(item.size_bytes)}
                           selected={selectedItems.has(`file-${item.id}`)}
-                          activeSection={activeSection}
+                          isTrash={activeSection === "Trash"}
+                          isStarred={item.is_starred}
+                          canEdit={item.can_edit !== false}
                           previewUrl={getPreviewType(item.name) === 'image' ? `${api.getBaseUrl()}/thumbnail/${item.id}/?token=${getToken()}` : undefined}
-                          onDoubleClick={handleDoubleClick}
+                          previewType={getPreviewType(item.name) === 'image' ? 'image' : undefined}
                           onSelect={toggleSelection}
+                          onDoubleClick={handleDoubleClick}
                           onToggleStar={toggleStar}
-                          onDownload={handleDownload}
                           onShare={handleShare}
                           onDelete={requestDelete}
                           onRestore={handleRestore}
                           onPermanentDelete={requestDelete}
+                          onDownload={handleDownload}
                         />
                       )}
                     </div>
@@ -1059,10 +1031,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                   <h2 className="text-sm font-medium text-muted-foreground mb-4">Folders</h2>
                   <div className="space-y-1">
                     {folders.map((folder) => (
-                      <div key={folder.id} data-selection-id={`folder-${folder.id}`} className="selectable-item touch-manipulation">
-                        <FileRow name={folder.name} type="default" size={folder.item_count === 1 ? "1 item" : `${folder.item_count || 0} items`} modified={folder.updated_at ? new Date(folder.updated_at).toLocaleDateString() : "—"} selected={selectedItems.has(`folder-${folder.id}`)} onSelect={() => toggleSelection(`folder-${folder.id}`)} onDoubleClick={() => handleDoubleClick(folder)} isStarred={folder.is_starred} onToggleStar={() => toggleStar(folder.id, !folder.is_starred)} isTrash={activeSection === "Trash"} onDelete={() => requestDelete(folder.id, false)} onRestore={async () => { await api.moveToTrash(folder.id, false); loadItems(true); window.dispatchEvent(new Event("storageUpdated")); }} onPermanentDelete={() => requestDelete(folder.id, true)} onShare={() => handleShare(folder.id)} canEdit={folder.can_edit !== false} onDownload={() => setGenericAlert({ title: "Coming Soon", message: "Downloading entire folders is not currently supported." })} />
-                        <FileRow name={folder.name} type="default" size={folder.item_count === 1 ? "1 item" : `${folder.item_count || 0} items`} modified={folder.updated_at ? new Date(folder.updated_at).toLocaleDateString() : "—"} selected={selectedItems.has(`folder-${folder.id}`)} onSelect={() => toggleSelection(`folder-${folder.id}`)} onDoubleClick={() => handleDoubleClick(folder)} isStarred={folder.is_starred} onToggleStar={() => toggleStar(folder.id, !folder.is_starred)} isTrash={activeSection === "Trash"} onDelete={() => requestDelete(folder.id, false)} onRestore={() => handleRestore(folder.id)} onPermanentDelete={() => requestDelete(folder.id, true)} onShare={() => handleShare(folder.id)} canEdit={folder.can_edit !== false} onDownload={() => setGenericAlert({ title: "Coming Soon", message: "Downloading entire folders is not currently supported." })} />
-                      </div>
+                      <FileRow key={folder.id} id={folder.id} isFolder={true} name={folder.name} type="default" size={folder.item_count === 1 ? "1 item" : `${folder.item_count || 0} items`} modified={folder.updated_at ? new Date(folder.updated_at).toLocaleDateString() : "—"} selected={selectedItems.has(`folder-${folder.id}`)} onSelect={toggleSelection} onDoubleClick={handleDoubleClick} isStarred={folder.is_starred} onToggleStar={toggleStar} isTrash={activeSection === "Trash"} onDelete={requestDelete} onRestore={handleRestore} onPermanentDelete={requestDelete} onShare={handleShare} canEdit={folder.can_edit !== false} onDownload={handleDownloadFolder} />
                     ))}
                   </div>
                 </section>
@@ -1081,9 +1050,7 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
                     </div>
                     <div className="divide-y divide-border/50">
                       {files.map((file) => (
-                        <div key={file.id} data-selection-id={`file-${file.id}`} className="selectable-item touch-manipulation">
-                          <FileRow name={file.name} type={getFileType(file.name)} size={formatBytes(file.size_bytes)} modified={file.updated_at ? new Date(file.updated_at).toLocaleDateString() : "—"} selected={selectedItems.has(`file-${file.id}`)} onSelect={() => toggleSelection(`file-${file.id}`)} onDoubleClick={() => handleDoubleClick(file)} isStarred={file.is_starred} onToggleStar={() => toggleStar(file.id, !file.is_starred)} isTrash={activeSection === "Trash"} onDownload={() => handleDownload(file.id)} onShare={() => handleShare(file.id)} onDelete={() => requestDelete(file.id, false)} onRestore={() => handleRestore(file.id)} onPermanentDelete={() => requestDelete(file.id, true)} canEdit={file.can_edit !== false} previewUrl={ getPreviewType(file.name) === 'image' ? `${api.getBaseUrl()}/thumbnail/${file.id}/?token=${getToken()}` : undefined } previewType={getPreviewType(file.name) === 'image' ? 'image' : undefined} />
-                        </div>
+                        <FileRow key={file.id} id={file.id} name={file.name} type={getFileType(file.name)} size={formatBytes(file.size_bytes)} modified={file.updated_at ? new Date(file.updated_at).toLocaleDateString() : "—"} selected={selectedItems.has(`file-${file.id}`)} onSelect={toggleSelection} onDoubleClick={handleDoubleClick} isStarred={file.is_starred} onToggleStar={toggleStar} isTrash={activeSection === "Trash"} onDownload={handleDownload} onShare={handleShare} onDelete={requestDelete} onRestore={handleRestore} onPermanentDelete={requestDelete} canEdit={file.can_edit !== false} previewUrl={ getPreviewType(file.name) === 'image' ? `${api.getBaseUrl()}/thumbnail/${file.id}/?token=${getToken()}` : undefined } previewType={getPreviewType(file.name) === 'image' ? 'image' : undefined} />
                       ))}
                     </div>
                   </div>
@@ -1590,9 +1557,19 @@ export function MainContent({ activeSection = "My Drive", user }: MainContentPro
 
 const FilePreviewModal = React.memo(() => {
   const [previewItem, setPreviewItem] = useState<CloudItem | null>(null);
+  const [isHighResLoaded, setIsHighResLoaded] = useState(false);
+  const [scale, setScale] = useState(1);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
-    const handleOpen = (e: any) => setPreviewItem(e.detail);
+    const handleOpen = (e: any) => {
+      setPreviewItem(e.detail);
+      setIsHighResLoaded(false);
+      setScale(1);
+      setPosition({ x: 0, y: 0 });
+    };
     window.addEventListener('openPreview', handleOpen);
     return () => window.removeEventListener('openPreview', handleOpen);
   }, []);
@@ -1621,6 +1598,38 @@ const FilePreviewModal = React.memo(() => {
 
   const previewType = getPreviewType(previewItem.name);
 
+  // Zoom / Pan handlers
+  const handleWheel = (e: React.WheelEvent) => {
+    if (previewType !== 'image') return;
+    const scaleAdjust = e.deltaY * -0.005;
+    let newScale = Math.min(Math.max(1, scale + scaleAdjust), 5); // Limit zoom from 1x to 5x
+    
+    if (newScale === 1) {
+      setPosition({ x: 0, y: 0 });
+    }
+    setScale(newScale);
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (scale > 1) {
+      setIsDragging(true);
+      setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isDragging && scale > 1) {
+      setPosition({
+        x: e.clientX - dragStart.x,
+        y: e.clientY - dragStart.y
+      });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center animate-in fade-in zoom-in-95 duration-200">
       <div className="absolute top-6 right-6 flex items-center gap-4 z-50">
@@ -1632,14 +1641,36 @@ const FilePreviewModal = React.memo(() => {
         </button>
       </div>
       
-      <div className="w-full h-full max-w-6xl max-h-[85vh] p-8 flex flex-col items-center justify-center relative">
-        {previewType === 'image' && <img src={`${api.getBaseUrl()}/download/${previewItem.id}/?token=${getToken()}`} alt={previewItem.name} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" />}
-        {previewType === 'video' && <video controls autoPlay src={`${api.getBaseUrl()}/download/${previewItem.id}/?token=${getToken()}`} className="max-w-full max-h-full rounded-lg shadow-2xl bg-black" />}
+      <div 
+        className={cn(
+          "w-full h-full p-8 flex flex-col items-center justify-center relative overflow-hidden",
+          previewType === 'image' && scale > 1 ? (isDragging ? "cursor-grabbing" : "cursor-grab") : ""
+        )}
+        onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+      >
+        {previewType === 'image' && (
+          <div 
+            className="relative w-full h-full max-w-6xl max-h-[85vh] flex items-center justify-center"
+            style={{ transform: `translate3d(${position.x}px, ${position.y}px, 0) scale(${scale})`, transition: isDragging ? 'none' : 'transform 0.1s ease-out' }}
+          >
+            {/* Blurry Low-Res Thumbnail */}
+            <img src={`${api.getBaseUrl()}/thumbnail/${previewItem.id}/?token=${getToken()}&w=400&h=400`} alt={previewItem.name} className={cn("absolute max-w-full max-h-full object-contain rounded-lg shadow-2xl transition-opacity duration-700", isHighResLoaded ? "opacity-0" : "opacity-100 blur-xl")} />
+            {/* High-Res Image */}
+            <img src={`${api.getBaseUrl()}/download/${previewItem.id}/?token=${getToken()}`} alt={previewItem.name} onLoad={() => setIsHighResLoaded(true)} draggable={false} className={cn("absolute max-w-full max-h-full object-contain rounded-lg shadow-2xl transition-opacity duration-700", isHighResLoaded ? "opacity-100" : "opacity-0")} />
+          </div>
+        )}
+        {previewType === 'video' && <div className="w-full h-full max-w-6xl max-h-[85vh] flex items-center justify-center"><video controls autoPlay src={`${api.getBaseUrl()}/download/${previewItem.id}/?token=${getToken()}`} className="max-w-full max-h-full rounded-lg shadow-2xl bg-black" /></div>}
         {previewType === 'audio' && (
-          <div className="bg-black/40 backdrop-blur-md p-10 rounded-3xl shadow-2xl flex flex-col items-center gap-8 w-full max-w-md border border-white/10">
-            <div className="w-32 h-32 bg-white/10 rounded-full flex items-center justify-center animate-pulse"><div className="w-16 h-16 bg-white rounded-full" /></div>
-            <h3 className="text-xl font-medium text-white text-center truncate w-full px-4">{previewItem.name}</h3>
-            <audio controls autoPlay src={`${api.getBaseUrl()}/download/${previewItem.id}/?token=${getToken()}`} className="w-full" />
+          <div className="w-full h-full max-w-6xl max-h-[85vh] flex items-center justify-center">
+            <div className="bg-black/40 backdrop-blur-md p-10 rounded-3xl shadow-2xl flex flex-col items-center gap-8 w-full max-w-md border border-white/10">
+              <div className="w-32 h-32 bg-white/10 rounded-full flex items-center justify-center animate-pulse"><div className="w-16 h-16 bg-white rounded-full" /></div>
+              <h3 className="text-xl font-medium text-white text-center truncate w-full px-4">{previewItem.name}</h3>
+              <audio controls autoPlay src={`${api.getBaseUrl()}/download/${previewItem.id}/?token=${getToken()}`} className="w-full" />
+            </div>
           </div>
         )}
       </div>

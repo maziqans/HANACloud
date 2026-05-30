@@ -6,21 +6,22 @@ import { FileText, Image as ImageIcon, FileVideo, FileAudio, File, MoreHorizonta
 import { cn } from "@/lib/utils"
 
 interface FileCardProps {
+  id: string
   name: string
   type?: string
   size?: string
   selected?: boolean
   isTrash?: boolean
   isStarred?: boolean
-  onClick?: () => void
-  onSelect?: () => void
-  onDoubleClick?: () => void
-  onDelete?: () => void
-  onRestore?: () => void
-  onPermanentDelete?: () => void
-  onShare?: () => void
-  onDownload?: () => void
-  onToggleStar?: () => void
+  onClick?: (id: string) => void
+  onSelect?: (id: string) => void
+  onDoubleClick?: (id: string) => void
+  onDelete?: (id: string, isPermanent: boolean) => void
+  onRestore?: (id: string) => void
+  onPermanentDelete?: (id: string, isPermanent: boolean) => void
+  onShare?: (id: string) => void
+  onDownload?: (id: string) => void
+  onToggleStar?: (id: string, currentStatus: boolean) => void
   previewUrl?: string
   previewType?: string
   canEdit?: boolean
@@ -58,6 +59,7 @@ const fileStyles: Record<string, { icon: string; bg: string }> = {
 }
 
 export const FileCard = React.memo(function FileCard({ 
+  id,
   name, 
   type = "default", 
   size = "—",
@@ -89,10 +91,11 @@ export const FileCard = React.memo(function FileCard({
 
   return (
     <div
-      onClick={onClick}
-      onDoubleClick={onDoubleClick}
+      data-selection-id={`file-${id}`}
+      onClick={() => onClick?.(id)}
+      onDoubleClick={() => onDoubleClick?.(id)}
       className={cn(
-        "group relative p-4 rounded-2xl cursor-pointer transition-all duration-200 bg-card border border-border cozy-shadow",
+        "group relative p-4 rounded-2xl cursor-pointer transition-all duration-200 bg-card border border-border cozy-shadow selectable-item touch-manipulation h-full",
         "hover:border-primary/20 hover:shadow-md",
         selected && "cozy-selected border-primary/30"
       )}
@@ -144,7 +147,7 @@ export const FileCard = React.memo(function FileCard({
       <button
         onClick={(e) => {
           e.stopPropagation()
-          onSelect?.()
+          onSelect?.(`file-${id}`)
         }}
         className={cn(
           "absolute top-3 left-3 w-5 h-5 rounded-lg border-2 transition-all duration-150 flex items-center justify-center",
@@ -178,15 +181,15 @@ export const FileCard = React.memo(function FileCard({
           <div className="absolute right-0 top-8 w-32 bg-popover border border-border rounded-lg shadow-lg z-50 py-1 animate-in zoom-in-95" onMouseLeave={() => setMenuOpen(false)}>
             {isTrash ? (
               <>
-                <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onRestore?.(); }}>Restore</button>
-                <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-destructive transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onPermanentDelete?.(); }}>Delete Forever</button>
+                <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onRestore?.(id); }}>Restore</button>
+                <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-destructive transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onPermanentDelete?.(id, true); }}>Delete Forever</button>
               </>
             ) : (
               <>
-              <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onToggleStar?.(); }}>{isStarred ? "Remove from Starred" : "Add to Starred"}</button>
-              <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDownload?.(); }}>Download</button>
-                <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onShare?.(); }}>Share</button>
-              {canEdit !== false && <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-destructive transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDelete?.(); }}>Move to Trash</button>}
+              <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onToggleStar?.(id, !isStarred); }}>{isStarred ? "Remove from Starred" : "Add to Starred"}</button>
+              <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDownload?.(id); }}>Download</button>
+                <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onShare?.(id); }}>Share</button>
+              {canEdit !== false && <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-destructive transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDelete?.(id, false); }}>Move to Trash</button>}
               </>
             )}
           </div>

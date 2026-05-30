@@ -110,6 +110,19 @@ def auto_delete_file_on_delete(sender, instance, **kwargs):
     """Physically remove the file or folder from the drive when the database record is deleted."""
     if instance.file and os.path.isfile(instance.file.path):
         os.remove(instance.file.path)
+    if instance.thumbnail and os.path.isfile(instance.thumbnail.path):
+        os.remove(instance.thumbnail.path)
+        
+    # Clean up the dynamic WEBP write-through cache for this specific file
+    try:
+        cache_dir = os.path.join(settings.MEDIA_ROOT, 'thumbnail_cache')
+        if os.path.exists(cache_dir):
+            for f in os.listdir(cache_dir):
+                if f.startswith(f"thumb_{instance.id}_"):
+                    os.remove(os.path.join(cache_dir, f))
+    except Exception:
+        pass
+        
     if instance.is_folder:
         path_parts = [instance.name]
         curr = instance.parent

@@ -455,15 +455,55 @@ def file_thumbnail(request, file_id):
     if not has_access:
         return Response({"error": "Unauthorized"}, status=403)
 
-    if cloud_file.thumbnail:
-        resp = FileResponse(cloud_file.thumbnail.open('rb'), content_type='image/jpeg')
-        resp['Cache-Control'] = 'public, max-age=86400' # Cache locally for 24 hours
+    # 1. Parse and Cap Dimensions
+    try:
+        w = int(request.GET.get('w', 400))
+        h = int(request.GET.get('h', 400))
+    except ValueError:
+        w, h = 400, 400
+        
+    w = min(max(w, 10), 1200) # Enforce strict bounds (min 10px, max 1200px)
+    h = min(max(h, 10), 1200)
+
+    # 2. Deterministic Cache Naming
+    from django.conf import settings
+    cache_dir = os.path.join(settings.MEDIA_ROOT, 'thumbnail_cache')
+    os.makedirs(cache_dir, exist_ok=True)
+    
+    cache_filename = f"thumb_{cloud_file.id}_{w}x{h}.webp"
+    cached_file_path = os.path.join(cache_dir, cache_filename)
+
+    # 3. Cache-First Logic (Zero CPU Overhead)
+    if os.path.exists(cached_file_path):
+        resp = FileResponse(open(cached_file_path, 'rb'), content_type='image/webp')
+        resp['Cache-Control'] = 'public, max-age=31536000, immutable'
         return resp
         
-    resp = download_file._callback(request, file_id) # Safe fallback to original download logic
-    if isinstance(resp, FileResponse):
-        resp['Cache-Control'] = 'public, max-age=86400'
-    return resp
+    # 4. Processing Engine (Cache Miss)
+    try:
+        from PIL import Image, ImageOps
+        source_field = cloud_file.thumbnail if cloud_file.thumbnail else cloud_file.file
+        if not source_field:
+            raise FileNotFoundError()
+            
+        with source_field.open('rb') as f:
+            img = Image.open(f)
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            
+            # Aggressively fit and crop mathematically
+            img = ImageOps.fit(img, (w, h), Image.Resampling.LANCZOS)
+            img.save(cached_file_path, format='WEBP', quality=80)
+            
+        resp = FileResponse(open(cached_file_path, 'rb'), content_type='image/webp')
+        resp['Cache-Control'] = 'public, max-age=31536000, immutable'
+        return resp
+    except (FileNotFoundError, OSError, ValueError, Exception):
+        # Handle missing originals or corrupted files gracefully
+        resp = download_file._callback(request, file_id) 
+        if isinstance(resp, FileResponse):
+            resp['Cache-Control'] = 'public, max-age=86400'
+        return resp
 
 @api_view(['GET'])
 @permission_classes([AllowAny]) # Standard HTML anchor links won't pass JWT headers easily

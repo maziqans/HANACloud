@@ -16,6 +16,7 @@ export default function HANACloudPage() {
   const [password, setPassword] = useState("")
   const [isLoggingIn, setIsLoggingIn] = useState(false)
   const [loginError, setLoginError] = useState<string | null>(null)
+  const [initialItems, setInitialItems] = useState<any[]>([])
 
   const isSettings = ["Profile Settings", "Storage Management", "Security Settings", "Settings"].includes(activeSection)
 
@@ -23,6 +24,15 @@ export default function HANACloudPage() {
     try {
       const userData = await api.getCurrentUser();
       setUser(userData);
+
+      // Pre-fetch initial drive items to hydrate the state instantly
+      try {
+        const items = await api.fetchItems(null);
+        setInitialItems(Array.isArray(items) ? items : []);
+      } catch (err) {
+        setInitialItems([]);
+      }
+
       setIsAuthenticated(true);
     } catch (e: any) {
       if (e.response && e.response.status === 401) {
@@ -190,7 +200,7 @@ export default function HANACloudPage() {
       <div className="relative z-10 flex w-full h-screen">
         <Sidebar activeItem={activeSection} onNavigate={setActiveSection} user={user} onLogout={handleLogout} />
         <div className="flex-1 flex flex-col overflow-hidden bg-white/5 backdrop-blur-3xl border-l border-white/10 shadow-2xl">
-          {isSettings ? <SettingsContent user={user} onUpdate={fetchUser} activeSection={activeSection} /> : <MainContent user={user} activeSection={activeSection} />}
+          {isSettings ? <SettingsContent user={user} onUpdate={fetchUser} activeSection={activeSection} /> : <MainContent user={user} activeSection={activeSection} initialItems={initialItems} />}
         </div>
       </div>
     </div>
