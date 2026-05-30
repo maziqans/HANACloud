@@ -95,15 +95,15 @@ export const FileCard = React.memo(function FileCard({
       onClick={() => onClick?.(id)}
       onDoubleClick={() => onDoubleClick?.(id)}
       className={cn(
-        "group relative p-4 rounded-2xl cursor-pointer transition-all duration-200 bg-card border border-border cozy-shadow selectable-item touch-manipulation h-full",
-        "hover:border-primary/20 hover:shadow-md",
+        "group relative rounded-xl cursor-pointer transition-all duration-200 bg-card border border-border cozy-shadow selectable-item touch-manipulation h-full flex flex-col",
+        "hover:border-primary/20 hover:shadow-md hover:bg-secondary/20",
         selected && "cozy-selected border-primary/30"
       )}
     >
-      {/* File Icon */}
-      <div className="w-full aspect-[4/3] mb-3 flex items-center justify-center">
+      {/* Thumbnail Area */}
+      <div className="w-full h-40 bg-black/20 flex items-center justify-center relative rounded-t-xl overflow-hidden shrink-0 border-b border-border/50">
         {previewUrl && previewType ? (
-          <div className="w-full h-full rounded-xl overflow-hidden bg-black/20 flex items-center justify-center relative">
+          <>
             {previewType === 'image' && (
               <>
                 {!isImageLoaded && <div className="absolute inset-0 bg-secondary animate-pulse" />}
@@ -125,75 +125,76 @@ export const FileCard = React.memo(function FileCard({
                 <div className="absolute inset-0 z-10" />
               </>
             )}
-          </div>
+          </>
         ) : (
-          <div className={cn("w-14 h-16 rounded-xl flex items-center justify-center", styles.bg)}>
-            <Icon className={cn("w-7 h-7", styles.icon)} strokeWidth={1.5} />
-          </div>
+          <Icon className={cn("w-16 h-16 opacity-50", styles.icon)} strokeWidth={1} />
         )}
-      </div>
 
-      {/* File Info */}
-      <div>
-        <h3 className="text-sm font-medium text-foreground truncate">
-          {name}
-        </h3>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          {size}
-        </p>
-      </div>
-
-      {/* Selection checkbox */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation()
-          onSelect?.(`file-${id}`)
-        }}
-        className={cn(
-          "absolute top-3 left-3 w-5 h-5 rounded-lg border-2 transition-all duration-150 flex items-center justify-center",
-          selected
-            ? "bg-primary border-primary"
-            : "border-border bg-card opacity-0 group-hover:opacity-100 hover:border-primary/50"
-        )}
-      >
-        {selected && (
-          <svg className="w-3 h-3 text-white" viewBox="0 0 12 12" fill="none">
-            <path d="M2 6l3 3 5-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        )}
-      </button>
-
-      {isStarred && (
-        <div className="absolute top-3 right-10 p-1.5 text-yellow-500 pointer-events-none">
-          <Star className="w-4 h-4 fill-current" />
-        </div>
-      )}
-
-      {/* More options */}
-      <div className="absolute top-3 right-3">
+        {/* Selection checkbox */}
         <button
-          onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
-          className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-secondary transition-all duration-150"
+          onClick={(e) => {
+            e.stopPropagation()
+            onSelect?.(`file-${id}`)
+          }}
+          className={cn(
+            "absolute top-3 left-3 w-5 h-5 rounded-lg border-2 transition-all duration-150 flex items-center justify-center z-20",
+            selected
+              ? "bg-primary border-primary"
+              : "border-border/50 bg-black/20 backdrop-blur-sm opacity-0 group-hover:opacity-100 hover:border-primary/50"
+          )}
         >
-          <MoreHorizontal className="w-4 h-4 text-muted-foreground" strokeWidth={2} />
+          {selected && (
+            <svg className="w-3 h-3 text-white" viewBox="0 0 12 12" fill="none">
+              <path d="M2 6l3 3 5-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          )}
         </button>
-        {menuOpen && (
-          <div className="absolute right-0 top-8 w-32 bg-popover border border-border rounded-lg shadow-lg z-50 py-1 animate-in zoom-in-95" onMouseLeave={() => setMenuOpen(false)}>
-            {isTrash ? (
-              <>
-                <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onRestore?.(id); }}>Restore</button>
-                <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-destructive transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onPermanentDelete?.(id, true); }}>Delete Forever</button>
-              </>
-            ) : (
-              <>
-              <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onToggleStar?.(id, !isStarred); }}>{isStarred ? "Remove from Starred" : "Add to Starred"}</button>
-              <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDownload?.(id); }}>Download</button>
-                <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onShare?.(id); }}>Share</button>
-              {canEdit !== false && <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-destructive transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDelete?.(id, false); }}>Move to Trash</button>}
-              </>
-            )}
+
+        {isStarred && (
+          <div className="absolute top-3 right-3 p-1.5 text-yellow-500 pointer-events-none z-20 drop-shadow-md">
+            <Star className="w-4 h-4 fill-current" />
           </div>
         )}
+      </div>
+
+      {/* Footer Area (Info Bar) */}
+      <div className="flex items-center gap-3 px-3 h-14 w-full bg-card rounded-b-xl relative">
+        <div className={cn("p-1.5 rounded-lg shrink-0", styles.bg)}>
+          <Icon className={cn("w-4 h-4", styles.icon)} strokeWidth={2} />
+        </div>
+        
+        <div className="flex-1 min-w-0">
+          <h3 className="text-sm font-medium text-foreground truncate" title={name}>
+            {name}
+          </h3>
+        </div>
+
+        {/* More options */}
+        <div className="shrink-0 ml-auto relative">
+          <button
+            onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
+            className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-secondary transition-all duration-150"
+          >
+            <MoreHorizontal className="w-4 h-4 text-muted-foreground" strokeWidth={2} />
+          </button>
+          {menuOpen && (
+            <div className="absolute right-0 bottom-full mb-2 w-32 bg-popover border border-border rounded-lg shadow-lg z-50 py-1 animate-in zoom-in-95" onMouseLeave={() => setMenuOpen(false)}>
+              {isTrash ? (
+                <>
+                  <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onRestore?.(id); }}>Restore</button>
+                  <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-destructive transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onPermanentDelete?.(id, true); }}>Delete Forever</button>
+                </>
+              ) : (
+                <>
+                <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onToggleStar?.(id, !isStarred); }}>{isStarred ? "Remove from Starred" : "Add to Starred"}</button>
+                <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDownload?.(id); }}>Download</button>
+                  <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onShare?.(id); }}>Share</button>
+                {canEdit !== false && <button className="w-full text-left px-4 py-2 text-sm hover:bg-secondary text-destructive transition-colors" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDelete?.(id, false); }}>Move to Trash</button>}
+                </>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

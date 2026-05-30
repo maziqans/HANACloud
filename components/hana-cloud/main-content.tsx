@@ -160,7 +160,6 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
   
   const [isCopied, setIsCopied] = useState(false)
   const [permissionWarning, setPermissionWarning] = useState(false)
-  const [isSortMenuOpen, setIsSortMenuOpen] = useState(false)
   const [isFolderMenuOpen, setIsFolderMenuOpen] = useState(false)
   const [isTypeFilterOpen, setIsTypeFilterOpen] = useState(false)
   const [pendingRequests, setPendingRequests] = useState<any[]>([])
@@ -789,71 +788,38 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
             </div>
           </div>
           <div className="flex items-center gap-2 md:gap-4 overflow-x-auto pb-1 md:pb-0 w-full md:w-auto custom-scrollbar">
-            {/* Sort Controls */}
-            <div className="flex items-center bg-white/5 border border-white/10 rounded-xl p-1 text-sm shadow-sm backdrop-blur-md relative" onMouseLeave={() => setIsSortMenuOpen(false)}>
-              <button 
-                onClick={() => setIsSortMenuOpen(!isSortMenuOpen)}
-                className="flex items-center justify-between gap-2 px-3 py-1.5 text-white hover:bg-white/10 rounded-lg transition-colors min-w-[80px]"
-              >
-                <span className="capitalize font-medium">{sortBy}</span>
-                <ChevronDown className={cn("w-4 h-4 transition-transform", isSortMenuOpen && "rotate-180")} />
-              </button>
-              
-              {isSortMenuOpen && (
-                <div className="absolute top-full left-0 pt-2 w-32 z-50">
-                  <div className="bg-black/80 backdrop-blur-2xl border border-white/20 shadow-2xl rounded-xl overflow-hidden">
-                  {["name", "date", "size"].map(option => (
-                    <button
-                      key={option}
-                      onClick={() => { setSortBy(option as any); setIsSortMenuOpen(false); }}
-                      className={cn(
-                        "w-full text-left px-4 py-2.5 text-sm capitalize hover:bg-white/10 transition-colors",
-                        sortBy === option ? "text-white font-medium bg-white/5" : "text-white/70"
-                      )}
-                    >
-                      {option}
-                    </button>
-                  ))}
-                  </div>
-                </div>
-              )}
-              <div className="w-px h-4 bg-white/20 mx-1" />
-              {/* Notifications */}
+            {/* Notifications */}
+            <div className="flex items-center bg-white/5 border border-white/10 rounded-xl p-1 text-sm shadow-sm backdrop-blur-md relative">
               <div className="relative">
                 <button onClick={() => setShowRequests(!showRequests)} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-white relative">
                   <Bell className="w-4 h-4" />
                   {pendingRequests.length > 0 && <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>}
                 </button>
                 {showRequests && (
-                  <div className="absolute top-full right-0 mt-2 w-80 bg-black/80 backdrop-blur-2xl border border-white/20 shadow-2xl rounded-xl overflow-hidden z-50 p-2">
-                    <h4 className="text-xs uppercase tracking-widest text-white/50 font-semibold px-3 py-2 mb-1">Access Requests</h4>
-                    {!Array.isArray(pendingRequests) || pendingRequests.length === 0 ? (
-                      <div className="px-3 py-4 text-sm text-white/40 text-center">No pending requests</div>
-                    ) : (
-                      <div className="max-h-64 overflow-y-auto custom-scrollbar space-y-1">
-                        {pendingRequests?.map(req => (
-                          <div key={req.id} className="p-3 bg-white/5 rounded-lg border border-white/10">
-                            <p className="text-sm text-white truncate mb-1"><strong>{req.user_email}</strong></p>
-                            <p className="text-xs text-white/60 truncate mb-3">Requested access to: {req.file_name}</p>
-                            <div className="flex gap-2">
-                              <button onClick={async () => { await api.reviewAccessRequest(req.id, 'approve'); fetchRequests(); loadItems(true); }} className="flex-1 py-1.5 bg-white text-slate-900 text-xs font-bold rounded">Approve</button>
-                              <button onClick={async () => { await api.reviewAccessRequest(req.id, 'reject'); fetchRequests(); }} className="flex-1 py-1.5 bg-white/10 text-white text-xs font-bold rounded hover:bg-red-500/20 hover:text-red-400">Reject</button>
+                  <>
+                    <div className="fixed inset-0 z-40 cursor-default" onClick={() => setShowRequests(false)} />
+                    <div className="absolute top-full right-0 mt-2 w-80 bg-black/80 backdrop-blur-2xl border border-white/20 shadow-2xl rounded-xl overflow-hidden z-50 p-2">
+                      <h4 className="text-xs uppercase tracking-widest text-white/50 font-semibold px-3 py-2 mb-1">Access Requests</h4>
+                      {!Array.isArray(pendingRequests) || pendingRequests.length === 0 ? (
+                        <div className="px-3 py-4 text-sm text-white/40 text-center">No pending requests</div>
+                      ) : (
+                        <div className="max-h-64 overflow-y-auto custom-scrollbar space-y-1 relative z-50">
+                          {pendingRequests?.map(req => (
+                            <div key={req.id} className="p-3 bg-white/5 rounded-lg border border-white/10">
+                              <p className="text-sm text-white truncate mb-1"><strong>{req.user_email}</strong></p>
+                              <p className="text-xs text-white/60 truncate mb-3">Requested access to: {req.file_name}</p>
+                              <div className="flex gap-2">
+                                <button onClick={async () => { await api.reviewAccessRequest(req.id, 'approve'); fetchRequests(); loadItems(true); }} className="flex-1 py-1.5 bg-white text-slate-900 text-xs font-bold rounded">Approve</button>
+                                <button onClick={async () => { await api.reviewAccessRequest(req.id, 'reject'); fetchRequests(); }} className="flex-1 py-1.5 bg-white/10 text-white text-xs font-bold rounded hover:bg-red-500/20 hover:text-red-400">Reject</button>
+                              </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </>
                 )}
               </div>
-              <div className="w-px h-4 bg-white/20 mx-1" />
-              <button 
-                onClick={() => setSortDirection(prev => prev === "asc" ? "desc" : "asc")}
-                className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-white"
-                title={`Sort ${sortDirection === "asc" ? "Descending" : "Ascending"}`}
-              >
-                {sortDirection === "asc" ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
-              </button>
             </div>
             <ViewToggle view={view} onViewChange={setView} />
           </div>
@@ -861,37 +827,40 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
 
         {/* Filter Bar */}
         <div className="flex gap-3 mt-4 relative z-40">
-          <div className="relative" onMouseLeave={() => setIsTypeFilterOpen(false)}>
+          <div className="relative">
             <button
               onClick={() => setIsTypeFilterOpen(!isTypeFilterOpen)}
-              className="flex items-center gap-2 px-4 py-1.5 border border-border rounded-full hover:bg-secondary text-sm text-foreground font-medium transition-colors"
+              className="flex items-center gap-2 px-4 py-1.5 border border-border rounded-full hover:bg-secondary text-sm text-foreground font-medium transition-colors relative z-50"
             >
               <span>Type</span>
               <ChevronDown className={cn("w-4 h-4 transition-transform", isTypeFilterOpen && "rotate-180")} />
             </button>
 
             {isTypeFilterOpen && (
-              <div className="absolute top-full left-0 mt-2 w-64 bg-popover border border-border rounded-xl shadow-lg z-50 py-2 animate-in fade-in slide-in-from-top-2">
-                {[
-                  { label: "Folders", icon: Folder },
-                  { label: "Documents", icon: FileText },
-                  { label: "Spreadsheets", icon: FileSpreadsheet },
-                  { label: "Presentations", icon: Monitor },
-                  { label: "Photos & images", icon: ImageIcon },
-                  { label: "PDFs", icon: FileIcon },
-                  { label: "Videos", icon: Film },
-                  { label: "Archives (zip)", icon: Archive },
-                ].map((type, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setIsTypeFilterOpen(false)}
-                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors text-left"
-                  >
-                    <type.icon className="w-4 h-4 text-muted-foreground shrink-0" />
-                    <span className="truncate">{type.label}</span>
-                  </button>
-                ))}
-              </div>
+              <>
+                <div className="fixed inset-0 z-40 cursor-default" onClick={() => setIsTypeFilterOpen(false)} />
+                <div className="absolute top-full left-0 mt-2 w-64 bg-popover border border-border rounded-xl shadow-lg z-50 py-2 animate-in fade-in slide-in-from-top-2">
+                  {[
+                    { label: "Folders", icon: Folder },
+                    { label: "Documents", icon: FileText },
+                    { label: "Spreadsheets", icon: FileSpreadsheet },
+                    { label: "Presentations", icon: Monitor },
+                    { label: "Photos & images", icon: ImageIcon },
+                    { label: "PDFs", icon: FileIcon },
+                    { label: "Videos", icon: Film },
+                    { label: "Archives (zip)", icon: Archive },
+                  ].map((type, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setIsTypeFilterOpen(false)}
+                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors text-left"
+                    >
+                      <type.icon className="w-4 h-4 text-muted-foreground shrink-0" />
+                      <span className="truncate">{type.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         </div>
@@ -901,24 +870,27 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
           <div>
             <div className="flex flex-wrap items-center gap-2 text-2xl font-semibold text-foreground">
               {navStack.length === 0 ? (
-                <div className="relative" onMouseLeave={() => setIsFolderMenuOpen(false)}>
+                <div className="relative">
                   <button 
                     onClick={() => setIsFolderMenuOpen(!isFolderMenuOpen)}
-                    className="flex items-center gap-1 hover:bg-white/10 rounded-lg px-2 py-1 -ml-2 transition-colors"
+                    className="flex items-center gap-1 hover:bg-white/10 rounded-lg px-2 py-1 -ml-2 transition-colors relative z-50"
                   >
                     <span>{activeSection}</span>
                     <ChevronDown className={cn("w-5 h-5 transition-transform", isFolderMenuOpen && "rotate-180")} />
                   </button>
                   {isFolderMenuOpen && (
-                    <div className="absolute top-full left-0 mt-1 w-56 bg-white shadow-lg rounded-xl py-2 z-50 text-slate-800 border border-slate-200 font-normal text-base">
-                      <button onClick={() => { setIsFolderMenuOpen(false); window.dispatchEvent(new Event("createFolder")); }} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">New folder</button>
-                      <button onClick={() => setIsFolderMenuOpen(false)} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">Download</button>
-                      <button onClick={() => setIsFolderMenuOpen(false)} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">Rename</button>
-                      <button onClick={() => setIsFolderMenuOpen(false)} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">Share</button>
-                      <button onClick={() => setIsFolderMenuOpen(false)} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">Folder information</button>
-                      <div className="h-px bg-slate-200 my-2" />
-                      <button onClick={() => setIsFolderMenuOpen(false)} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-slate-100 transition-colors">Move to trash</button>
-                    </div>
+                    <>
+                      <div className="fixed inset-0 z-40 cursor-default" onClick={() => setIsFolderMenuOpen(false)} />
+                      <div className="absolute top-full left-0 mt-1 w-56 bg-white shadow-lg rounded-xl py-2 z-50 text-slate-800 border border-slate-200 font-normal text-base">
+                        <button onClick={() => { setIsFolderMenuOpen(false); window.dispatchEvent(new Event("createFolder")); }} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">New folder</button>
+                        <button onClick={() => setIsFolderMenuOpen(false)} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">Download</button>
+                        <button onClick={() => setIsFolderMenuOpen(false)} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">Rename</button>
+                        <button onClick={() => setIsFolderMenuOpen(false)} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">Share</button>
+                        <button onClick={() => setIsFolderMenuOpen(false)} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">Folder information</button>
+                        <div className="h-px bg-slate-200 my-2" />
+                        <button onClick={() => setIsFolderMenuOpen(false)} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-slate-100 transition-colors">Move to trash</button>
+                      </div>
+                    </>
                   )}
                 </div>
               ) : (
@@ -933,24 +905,27 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
                 <div key={nav.id} className="flex items-center gap-2">
                   <ChevronRight className="w-5 h-5 text-muted-foreground" />
                   {index === navStack.length - 1 ? (
-                    <div className="relative" onMouseLeave={() => setIsFolderMenuOpen(false)}>
+                    <div className="relative">
                       <button 
                         onClick={() => setIsFolderMenuOpen(!isFolderMenuOpen)}
-                        className="flex items-center gap-1 hover:bg-white/10 rounded-lg px-2 py-1 -ml-2 transition-colors"
+                        className="flex items-center gap-1 hover:bg-white/10 rounded-lg px-2 py-1 -ml-2 transition-colors relative z-50"
                       >
                         <span className="truncate max-w-[150px]">{nav.name}</span>
                         <ChevronDown className={cn("w-5 h-5 transition-transform", isFolderMenuOpen && "rotate-180")} />
                       </button>
                       {isFolderMenuOpen && (
-                        <div className="absolute top-full left-0 mt-1 w-56 bg-white shadow-lg rounded-xl py-2 z-50 text-slate-800 border border-slate-200 font-normal text-base">
-                          <button onClick={() => { setIsFolderMenuOpen(false); window.dispatchEvent(new Event("createFolder")); }} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">New folder</button>
-                          <button onClick={() => { setIsFolderMenuOpen(false); handleDownloadFolder(nav.id); }} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">Download</button>
-                          <button onClick={() => setIsFolderMenuOpen(false)} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">Rename</button>
-                          <button onClick={() => { setIsFolderMenuOpen(false); handleShare(nav.id); }} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">Share</button>
-                          <button onClick={() => setIsFolderMenuOpen(false)} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">Folder information</button>
-                          <div className="h-px bg-slate-200 my-2" />
-                          <button onClick={() => { setIsFolderMenuOpen(false); requestDelete(nav.id, false); }} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-slate-100 transition-colors">Move to trash</button>
-                        </div>
+                        <>
+                          <div className="fixed inset-0 z-40 cursor-default" onClick={() => setIsFolderMenuOpen(false)} />
+                          <div className="absolute top-full left-0 mt-1 w-56 bg-white shadow-lg rounded-xl py-2 z-50 text-slate-800 border border-slate-200 font-normal text-base">
+                            <button onClick={() => { setIsFolderMenuOpen(false); window.dispatchEvent(new Event("createFolder")); }} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">New folder</button>
+                            <button onClick={() => { setIsFolderMenuOpen(false); handleDownloadFolder(nav.id); }} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">Download</button>
+                            <button onClick={() => setIsFolderMenuOpen(false)} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">Rename</button>
+                            <button onClick={() => { setIsFolderMenuOpen(false); handleShare(nav.id); }} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">Share</button>
+                            <button onClick={() => setIsFolderMenuOpen(false)} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">Folder information</button>
+                            <div className="h-px bg-slate-200 my-2" />
+                            <button onClick={() => { setIsFolderMenuOpen(false); requestDelete(nav.id, false); }} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-slate-100 transition-colors">Move to trash</button>
+                          </div>
+                        </>
                       )}
                     </div>
                   ) : (
