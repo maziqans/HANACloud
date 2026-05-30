@@ -8,7 +8,7 @@ import { ViewToggle } from "./view-toggle"
 import { FolderCard } from "./folder-card"
 import { FileCard } from "./file-card"
 import { FileRow } from "./file-row"
-import { Inbox, CheckCircle2, Loader2, MoreHorizontal, ChevronRight, ChevronDown, Star, Upload, X, Download, ArrowUp, ArrowDown, Play, Bell, ShieldAlert, AlertCircle, Menu } from "lucide-react"
+import { Inbox, CheckCircle2, Loader2, MoreHorizontal, ChevronRight, ChevronDown, Star, Upload, X, Download, ArrowUp, ArrowDown, Play, Bell, ShieldAlert, AlertCircle, Menu, Folder, FileText, FileSpreadsheet, Monitor, Image as ImageIcon, File as FileIcon, Film, Archive } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export interface CloudItem {
@@ -70,28 +70,33 @@ const chunk = <T,>(arr: T[], size: number) =>
     arr.slice(i * size, i * size + size)
   );
 
-const useGridColumns = (containerRef: React.RefObject<HTMLDivElement | null>) => {
-  const [columns, setColumns] = useState(2);
+const useGridDimensions = (containerRef: React.RefObject<HTMLDivElement | null>) => {
+  const [dimensions, setDimensions] = useState({ columns: 4, width: 0 });
 
   useEffect(() => {
-    const calculateColumns = (width: number) => {
-      if (width >= 1280) return 6; // xl
-      if (width >= 1024) return 5; // lg
-      if (width >= 768) return 4; // md
-      if (width >= 640) return 3; // sm
-      return 2; // default
+    const calculateDimensions = (width: number) => {
+      let columns = 4;
+      if (width > 1024) columns = 4;
+      else if (width > 768) columns = 3;
+      else if (width > 480) columns = 2;
+      else columns = 1;
+      return { columns, width };
     };
 
-    const target = containerRef?.current || document.documentElement;
+    const target = containerRef?.current;
+    if (!target) return;
+
+    setDimensions(calculateDimensions(target.getBoundingClientRect().width));
+
     const observer = new ResizeObserver((entries) => {
-      if (entries[0]) setColumns(calculateColumns(entries[0].contentRect.width));
+      if (entries[0]) setDimensions(calculateDimensions(entries[0].contentRect.width));
     });
 
     observer.observe(target);
     return () => observer.disconnect();
   }, [containerRef]);
 
-  return columns;
+  return dimensions;
 };
 
 const itemCache: Record<string, CloudItem[]> = {}
@@ -156,6 +161,8 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
   const [isCopied, setIsCopied] = useState(false)
   const [permissionWarning, setPermissionWarning] = useState(false)
   const [isSortMenuOpen, setIsSortMenuOpen] = useState(false)
+  const [isFolderMenuOpen, setIsFolderMenuOpen] = useState(false)
+  const [isTypeFilterOpen, setIsTypeFilterOpen] = useState(false)
   const [pendingRequests, setPendingRequests] = useState<any[]>([])
   const [showRequests, setShowRequests] = useState(false)
 
@@ -550,14 +557,18 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
   const files = useMemo(() => sortedItems.filter((item) => item.item_type === "FILE"), [sortedItems]);
 
   // --- Virtualization Setup ---
-  const columnCount = useGridColumns(scrollContainerRef);
+  const { columns: columnCount, width: containerWidth } = useGridDimensions(scrollContainerRef);
+  const gap = 16;
+  const totalGapWidth = (columnCount - 1) * gap;
+  const itemWidth = containerWidth > 0 ? (containerWidth - totalGapWidth) / columnCount : 0;
+
   const gridItems = useMemo(() => [...folders, ...files], [folders, files]);
   const gridRows = useMemo(() => view === 'grid' ? chunk(gridItems, columnCount) : [], [gridItems, columnCount, view]);
 
   const rowVirtualizer = useVirtualizer({
     count: gridRows.length,
     getScrollElement: () => scrollContainerRef.current,
-    estimateSize: () => 240, // Approx height of a grid item row. Tune if needed.
+    estimateSize: () => 240 + gap,
     overscan: 5,
   });
   // --- End Virtualization Setup ---
@@ -848,25 +859,108 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
           </div>
         </div>
 
+        {/* Filter Bar */}
+        <div className="flex gap-3 mt-4 relative z-40">
+          <div className="relative" onMouseLeave={() => setIsTypeFilterOpen(false)}>
+            <button
+              onClick={() => setIsTypeFilterOpen(!isTypeFilterOpen)}
+              className="flex items-center gap-2 px-4 py-1.5 border border-border rounded-full hover:bg-secondary text-sm text-foreground font-medium transition-colors"
+            >
+              <span>Type</span>
+              <ChevronDown className={cn("w-4 h-4 transition-transform", isTypeFilterOpen && "rotate-180")} />
+            </button>
+
+            {isTypeFilterOpen && (
+              <div className="absolute top-full left-0 mt-2 w-64 bg-popover border border-border rounded-xl shadow-lg z-50 py-2 animate-in fade-in slide-in-from-top-2">
+                {[
+                  { label: "Folders", icon: Folder },
+                  { label: "Documents", icon: FileText },
+                  { label: "Spreadsheets", icon: FileSpreadsheet },
+                  { label: "Presentations", icon: Monitor },
+                  { label: "Photos & images", icon: ImageIcon },
+                  { label: "PDFs", icon: FileIcon },
+                  { label: "Videos", icon: Film },
+                  { label: "Archives (zip)", icon: Archive },
+                ].map((type, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setIsTypeFilterOpen(false)}
+                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors text-left"
+                  >
+                    <type.icon className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <span className="truncate">{type.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Section Title */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 text-2xl font-semibold text-foreground">
-              <button 
-                onClick={() => { setCurrentParentId(null); setNavStack([]); setSelectedItems(new Set()); }}
-                className="hover:underline"
-              >
-                {activeSection}
-              </button>
+            <div className="flex flex-wrap items-center gap-2 text-2xl font-semibold text-foreground">
+              {navStack.length === 0 ? (
+                <div className="relative" onMouseLeave={() => setIsFolderMenuOpen(false)}>
+                  <button 
+                    onClick={() => setIsFolderMenuOpen(!isFolderMenuOpen)}
+                    className="flex items-center gap-1 hover:bg-white/10 rounded-lg px-2 py-1 -ml-2 transition-colors"
+                  >
+                    <span>{activeSection}</span>
+                    <ChevronDown className={cn("w-5 h-5 transition-transform", isFolderMenuOpen && "rotate-180")} />
+                  </button>
+                  {isFolderMenuOpen && (
+                    <div className="absolute top-full left-0 mt-1 w-56 bg-white shadow-lg rounded-xl py-2 z-50 text-slate-800 border border-slate-200 font-normal text-base">
+                      <button onClick={() => { setIsFolderMenuOpen(false); window.dispatchEvent(new Event("createFolder")); }} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">New folder</button>
+                      <button onClick={() => setIsFolderMenuOpen(false)} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">Download</button>
+                      <button onClick={() => setIsFolderMenuOpen(false)} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">Rename</button>
+                      <button onClick={() => setIsFolderMenuOpen(false)} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">Share</button>
+                      <button onClick={() => setIsFolderMenuOpen(false)} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">Folder information</button>
+                      <div className="h-px bg-slate-200 my-2" />
+                      <button onClick={() => setIsFolderMenuOpen(false)} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-slate-100 transition-colors">Move to trash</button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <button 
+                  onClick={() => { setCurrentParentId(null); setNavStack([]); setSelectedItems(new Set()); }}
+                  className="hover:underline"
+                >
+                  {activeSection}
+                </button>
+              )}
               {navStack.map((nav, index) => (
                 <div key={nav.id} className="flex items-center gap-2">
                   <ChevronRight className="w-5 h-5 text-muted-foreground" />
-                  <button 
-                    onClick={() => navigateTo(index)}
-                    className="hover:underline truncate max-w-[150px]"
-                  >
-                    {nav.name}
-                  </button>
+                  {index === navStack.length - 1 ? (
+                    <div className="relative" onMouseLeave={() => setIsFolderMenuOpen(false)}>
+                      <button 
+                        onClick={() => setIsFolderMenuOpen(!isFolderMenuOpen)}
+                        className="flex items-center gap-1 hover:bg-white/10 rounded-lg px-2 py-1 -ml-2 transition-colors"
+                      >
+                        <span className="truncate max-w-[150px]">{nav.name}</span>
+                        <ChevronDown className={cn("w-5 h-5 transition-transform", isFolderMenuOpen && "rotate-180")} />
+                      </button>
+                      {isFolderMenuOpen && (
+                        <div className="absolute top-full left-0 mt-1 w-56 bg-white shadow-lg rounded-xl py-2 z-50 text-slate-800 border border-slate-200 font-normal text-base">
+                          <button onClick={() => { setIsFolderMenuOpen(false); window.dispatchEvent(new Event("createFolder")); }} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">New folder</button>
+                          <button onClick={() => { setIsFolderMenuOpen(false); handleDownloadFolder(nav.id); }} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">Download</button>
+                          <button onClick={() => setIsFolderMenuOpen(false)} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">Rename</button>
+                          <button onClick={() => { setIsFolderMenuOpen(false); handleShare(nav.id); }} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">Share</button>
+                          <button onClick={() => setIsFolderMenuOpen(false)} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">Folder information</button>
+                          <div className="h-px bg-slate-200 my-2" />
+                          <button onClick={() => { setIsFolderMenuOpen(false); requestDelete(nav.id, false); }} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-slate-100 transition-colors">Move to trash</button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <button 
+                      onClick={() => navigateTo(index)}
+                      className="hover:underline truncate max-w-[150px]"
+                    >
+                      {nav.name}
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -972,11 +1066,10 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
                       key={item.id}
                       style={{
                         position: 'absolute',
-                        top: `${Math.floor(index / columnCount) * 240}px`,
-                        left: `${(index % columnCount) * (100 / columnCount)}%`,
-                        width: `${100 / columnCount}%`,
+                          top: `${virtualRow.start}px`,
+                          left: `${(index % columnCount) * (itemWidth + gap)}px`,
+                          width: `${itemWidth}px`,
                         height: '240px',
-                        padding: '8px',
                       }}
                     >
                       {item.item_type === 'FOLDER' ? (
