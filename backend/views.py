@@ -545,9 +545,10 @@ def download_file(request, file_id):
     cloud_file.last_viewed_at = timezone.now()
     cloud_file.save(update_fields=['last_viewed_at'])
     
+    force_download = request.GET.get('download') == '1'
     ext = os.path.splitext(cloud_file.name)[1].lower()
     inline_exts = ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.webp', '.txt', '.mp4', '.webm', '.ogg', '.mp3', '.wav']
-    as_attachment = ext not in inline_exts
+    as_attachment = force_download or (ext not in inline_exts)
     resp = FileResponse(cloud_file.file.open('rb'), as_attachment=as_attachment, filename=cloud_file.name)
     if not as_attachment:
         resp['Cache-Control'] = 'public, max-age=86400' # Speeds up preview reloading drastically

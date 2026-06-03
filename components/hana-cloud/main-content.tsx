@@ -575,8 +575,8 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
   const handleDownload = useCallback((id: string) => {
     const baseUrl = api.getBaseUrl()
     const link = document.createElement("a")
-    link.href = `${baseUrl}/download/${id}/?token=${getToken()}`
-    link.target = "_blank"
+    link.href = `${baseUrl}/download/${id}/?token=${getToken()}&download=1`
+    link.download = ""
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
@@ -1663,8 +1663,8 @@ const FilePreviewModal = React.memo(() => {
   const handleDownload = (id: string) => {
     const baseUrl = api.getBaseUrl();
     const link = document.createElement("a");
-    link.href = `${baseUrl}/download/${id}/?token=${getToken()}`;
-    link.target = "_blank";
+    link.href = `${baseUrl}/download/${id}/?token=${getToken()}&download=1`;
+    link.download = "";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
