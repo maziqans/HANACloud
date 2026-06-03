@@ -137,6 +137,7 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
   const [isDragging, setIsDragging] = useState(false)
   const fetchIdRef = useRef(0)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const loadItemsRef = useRef<((isBg?: boolean) => Promise<void>)>(async () => {})
   
   const [selectionBox, setSelectionBox] = useState<{ startX: number, startY: number, endX: number, endY: number } | null>(null)
   const isSelecting = useRef(false)
@@ -270,6 +271,8 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
       }
     }
   }
+
+  loadItemsRef.current = loadItems;
 
   useEffect(() => {
     if (folderPicker?.isOpen) {
@@ -483,7 +486,7 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
         }
         
         setUploads(prev => prev.map(u => u.id === upload.id ? { ...u, complete: true, progress: 100 } : u))
-        await loadItems(true)
+        await loadItemsRef.current(true)
         window.dispatchEvent(new Event("storageUpdated"))
       } catch (error) {
         console.error("Failed to upload file:", upload.filename, error)
@@ -597,7 +600,7 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
       } else {
         handleDownload(item.id);
       }
-      setTimeout(() => loadItems(true), 500) // silently update recent tab sorting in background
+        setTimeout(() => loadItemsRef.current(true), 500) // silently update recent tab sorting in background
     }
   }, [activeSection, handleDownload, itemsRef]);
 
@@ -691,7 +694,7 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
       
       setFolderPicker(null);
       setSelectedItems(new Set());
-      await loadItems(true);
+      await loadItemsRef.current(true);
       window.dispatchEvent(new Event("storageUpdated"));
     } catch (err: any) {
       setGenericAlert({ title: "Action Failed", message: err.message });
@@ -718,7 +721,7 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
   
   const toggleStar = useCallback(async (id: string, is_starred: boolean) => {
     await api.toggleStar(id, is_starred);
-    await loadItems(true);
+    await loadItemsRef.current(true);
     window.dispatchEvent(new Event("storageUpdated"));
   }, []);
 
@@ -738,7 +741,7 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
       action: async () => {
         if (isPermanent) await api.permanentDelete(id);
         else await api.moveToTrash(id);
-        await loadItems(true);
+        await loadItemsRef.current(true);
         window.dispatchEvent(new Event("storageUpdated"));
       }
     });
@@ -752,14 +755,14 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
       confirmText: "Move to Trash",
       action: async () => {
         for (const idStr of selectedItems) await api.moveToTrash(idStr.replace(/file-|folder-/, ''));
-        setSelectedItems(new Set()); await loadItems(true); window.dispatchEvent(new Event("storageUpdated"));
+        setSelectedItems(new Set()); await loadItemsRef.current(true); window.dispatchEvent(new Event("storageUpdated"));
       }
     });
   }
 
   const handleRestore = useCallback(async (id: string) => {
     await api.moveToTrash(id, false);
-    await loadItems(true);
+    await loadItemsRef.current(true);
     window.dispatchEvent(new Event("storageUpdated"));
   }, []);
 
@@ -815,7 +818,7 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
                               <p className="text-sm text-white truncate mb-1"><strong>{req.user_email}</strong></p>
                               <p className="text-xs text-white/60 truncate mb-3">Requested access to: {req.file_name}</p>
                               <div className="flex gap-2">
-                                <button onClick={async () => { await api.reviewAccessRequest(req.id, 'approve'); fetchRequests(); loadItems(true); }} className="flex-1 py-1.5 bg-white text-slate-900 text-xs font-bold rounded">Approve</button>
+                            <button onClick={async () => { await api.reviewAccessRequest(req.id, 'approve'); fetchRequests(); loadItemsRef.current(true); }} className="flex-1 py-1.5 bg-white text-slate-900 text-xs font-bold rounded">Approve</button>
                                 <button onClick={async () => { await api.reviewAccessRequest(req.id, 'reject'); fetchRequests(); }} className="flex-1 py-1.5 bg-white/10 text-white text-xs font-bold rounded hover:bg-red-500/20 hover:text-red-400">Reject</button>
                               </div>
                             </div>
@@ -959,7 +962,7 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
                     message: "All items in the trash will be permanently deleted from the cloud. This action cannot be undone.",
                     confirmText: "Empty Trash",
                     action: async () => {
-                      await api.emptyTrash(); await loadItems(true); window.dispatchEvent(new Event("storageUpdated"));
+                  await api.emptyTrash(); await loadItemsRef.current(true); window.dispatchEvent(new Event("storageUpdated"));
                     }
                   });
                 }}
@@ -983,7 +986,7 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
               <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-xs sm:text-sm font-semibold tracking-widest uppercase">
                 <button onClick={async () => {
                   for (const idStr of selectedItems) await api.moveToTrash(idStr.replace(/file-|folder-/, ''), false);
-                  setSelectedItems(new Set()); loadItems(true); window.dispatchEvent(new Event("storageUpdated"));
+              setSelectedItems(new Set()); loadItemsRef.current(true); window.dispatchEvent(new Event("storageUpdated"));
                 }} className="hover:text-white/70 transition-colors">Restore</button>
                 <button onClick={async () => {
                   setConfirmAction({
@@ -991,7 +994,7 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
                     message: `Are you sure you want to permanently delete ${selectedItems.size} item(s)?`,
                     action: async () => {
                       for (const idStr of selectedItems) await api.permanentDelete(idStr.replace(/file-|folder-/, ''));
-                      setSelectedItems(new Set()); await loadItems(true); window.dispatchEvent(new Event("storageUpdated"));
+                  setSelectedItems(new Set()); await loadItemsRef.current(true); window.dispatchEvent(new Event("storageUpdated"));
                     }
                   });
                 }} className="text-red-400 hover:text-red-300 transition-colors">Delete Permanently</button>
@@ -1166,7 +1169,7 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
 
                   try {
                     await api.createFolder(name, currentParentId);
-                  } finally { await loadItems(true); }
+                  } finally { await loadItemsRef.current(true); }
                 }
               }}
             />
@@ -1196,7 +1199,7 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
 
                     try {
                       await api.createFolder(name, currentParentId);
-                    } finally { await loadItems(true); }
+                    } finally { await loadItemsRef.current(true); }
                   }
                 }}
                 className="px-6 py-2.5 bg-white text-slate-900 hover:bg-white/90 rounded-xl text-xs font-bold tracking-widest uppercase transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)]"
