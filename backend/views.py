@@ -553,6 +553,61 @@ def download_file(request, file_id):
         resp['Cache-Control'] = 'public, max-age=86400' # Speeds up preview reloading drastically
     return resp
 
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def download_folder(request, folder_id):
+    cloud_folder = get_object_or_404(CloudFile, id=folder_id, is_folder=True)
+    
+    token = request.GET.get('token')
+    auth_user = request.user
+    if token:
+        from rest_framework_simplejwt.authentication import JWTAuthentication
+        try:
+            validated_token = JWTAuthentication().get_validated_token(token)
+            auth_user = JWTAuthentication().get_user(validated_token)
+        except Exception:
+            pass
+
+    has_access = False
+    if cloud_folder.share_mode == 'PUBLIC':
+        has_access = True
+    elif auth_user and auth_user.is_authenticated:
+        if cloud_folder.user == auth_user or cloud_folder.access_permissions.filter(user=auth_user).exists():
+            has_access = True
+            
+    if not has_access:
+        accessible_ids = set(FileAccess.objects.filter(user=auth_user).values_list('file_id', flat=True)) if auth_user and auth_user.is_authenticated else set()
+        curr = cloud_folder.parent
+        while curr:
+            if curr.share_mode == 'PUBLIC' or (auth_user and auth_user.is_authenticated and (curr.user == auth_user or curr.id in accessible_ids)):
+                has_access = True
+                break
+            curr = curr.parent
+
+    if not has_access:
+        return Response({"error": "Unauthorized to access this folder."}, status=403)
+
+    import tempfile
+    import zipfile
+    
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.zip')
+    
+    def add_to_zip(zipf, folder, current_path=""):
+        for child in folder.children.filter(is_trashed=False):
+            if child.is_folder:
+                add_to_zip(zipf, child, os.path.join(current_path, child.name))
+            elif child.file and os.path.exists(child.file.path):
+                arcname = os.path.join(current_path, child.name)
+                zipf.write(child.file.path, arcname)
+
+    with zipfile.ZipFile(tmp, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        add_to_zip(zipf, cloud_folder)
+        
+    tmp.close()
+    
+    resp = FileResponse(open(tmp.name, 'rb'), as_attachment=True, filename=f"{cloud_folder.name}.zip")
+    return resp
+
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
 def move_to_trash(request, item_id):

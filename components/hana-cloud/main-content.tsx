@@ -602,7 +602,13 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
   }, [activeSection, handleDownload, itemsRef]);
 
   const handleDownloadFolder = useCallback((id: string) => {
-    setGenericAlert({ title: "Coming Soon", message: "Downloading entire folders is not currently supported." });
+    const baseUrl = api.getBaseUrl()
+    const link = document.createElement("a")
+    link.href = `${baseUrl}/download-folder/${id}/?token=${getToken()}`
+    link.target = "_blank"
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
   }, []);
 
   const handleShare = useCallback(async (id: string) => {

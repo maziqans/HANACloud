@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
-import { Download, File, Folder, Loader2 } from "lucide-react"
+import { Download, File, Folder, Loader2, X } from "lucide-react"
 import { getBaseUrl } from "@/lib/api"
 
 interface SharedItem {
@@ -43,6 +43,7 @@ export default function SharedPage() {
   const [error, setError] = useState("")
   const [requestStatus, setRequestStatus] = useState<string | null>(null)
   const [fileName, setFileName] = useState("")
+  const [previewItem, setPreviewItem] = useState<SharedItem | null>(null)
 
   useEffect(() => {
     if (!token) return;
@@ -80,6 +81,18 @@ export default function SharedPage() {
     const tokenStr = localStorage.getItem("access_token") || localStorage.getItem("token") || "";
     window.open(`${baseUrl}/download/${id}/?token=${tokenStr}`, "_blank")
   }
+
+  const handleDownloadFolder = (id: string) => {
+    const baseUrl = getBaseUrl()
+    const tokenStr = localStorage.getItem("access_token") || localStorage.getItem("token") || "";
+    window.open(`${baseUrl}/download-folder/${id}/?token=${tokenStr}`, "_blank")
+  }
+
+  const handleDoubleClick = (child: SharedItem) => {
+    if (child.item_type === "FILE") {
+      setPreviewItem(child);
+    }
+  };
 
   if (loading) {
     return (
@@ -184,6 +197,12 @@ export default function SharedPage() {
                 <Download className="w-5 h-5" /> Download File
               </button>
             )}
+
+            {item.item_type === "FOLDER" && (
+              <button onClick={() => handleDownloadFolder(item.id)} className="px-8 py-3.5 bg-white hover:bg-white/90 text-slate-900 rounded-xl font-semibold uppercase tracking-widest text-xs transition-colors shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] flex items-center justify-center gap-3 w-full sm:w-auto whitespace-nowrap touch-manipulation">
+                <Download className="w-5 h-5" /> Download All
+              </button>
+            )}
           </div>
         </div>
 
@@ -217,9 +236,19 @@ export default function SharedPage() {
                 <p className="text-center text-white/40 py-8 sm:py-10 italic text-sm">This folder is empty.</p>
               ) : (
                 item.children.map((child) => (
-                  <div key={child.id} className="flex items-center justify-between p-3 sm:p-4 hover:bg-white/5 rounded-2xl transition-colors border border-transparent hover:border-white/10 group touch-manipulation">
-                    <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                      {child.item_type === "FOLDER" ? <Folder className="w-5 h-5 sm:w-6 sm:h-6 text-white shrink-0" /> : <File className="w-5 h-5 sm:w-6 sm:h-6 text-white/60 shrink-0" />}
+                  <div key={child.id} onDoubleClick={() => handleDoubleClick(child)} className="flex items-center justify-between p-3 sm:p-4 hover:bg-white/5 rounded-2xl transition-colors border border-transparent hover:border-white/10 group touch-manipulation">
+                    <div className="flex items-center gap-3 sm:gap-4 min-w-0 cursor-pointer select-none">
+                      {child.item_type === "FOLDER" ? (
+                        <Folder className="w-5 h-5 sm:w-6 sm:h-6 text-white shrink-0" />
+                      ) : (
+                        getPreviewType(child.name) === 'image' ? (
+                          <div className="w-8 h-8 rounded overflow-hidden shrink-0 bg-white/10 flex items-center justify-center">
+                            <img src={`${getBaseUrl()}/thumbnail/${child.id}/?token=${typeof window !== "undefined" ? (localStorage.getItem("access_token") || localStorage.getItem("token") || "") : ""}&w=64&h=64`} alt={child.name} className="w-full h-full object-cover" />
+                          </div>
+                        ) : (
+                          <File className="w-5 h-5 sm:w-6 sm:h-6 text-white/60 shrink-0" />
+                        )
+                      )}
                       <span className="font-light tracking-wide text-white truncate text-sm sm:text-base">{child.name}</span>
                     </div>
                     <button onClick={() => handleDownload(child.id)} className="p-2 bg-white/10 border border-white/20 rounded-lg text-white/80 hover:text-white hover:bg-white/20 sm:opacity-0 sm:group-hover:opacity-100 transition-all shadow-sm shrink-0 ml-2 touch-manipulation">
@@ -232,6 +261,38 @@ export default function SharedPage() {
           </div>
         )}
       </div>
+
+      {previewItem && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center animate-in fade-in zoom-in-95 duration-200">
+          <div className="absolute top-6 right-6 flex items-center gap-4 z-50">
+            <button onClick={() => handleDownload(previewItem.id)} className="px-4 py-2 bg-white text-slate-900 rounded-full text-sm font-bold tracking-widest uppercase hover:bg-white/90 transition-colors flex items-center gap-2 shadow-lg">
+              <Download className="w-4 h-4" /> Download
+            </button>
+            <button onClick={() => setPreviewItem(null)} className="p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors shadow-lg">
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+          
+          <div className="w-full h-full p-8 flex flex-col items-center justify-center relative overflow-hidden">
+            {(() => {
+              const pType = getPreviewType(previewItem.name);
+              const baseUrl = getBaseUrl();
+              const tokenStr = typeof window !== "undefined" ? (localStorage.getItem("access_token") || localStorage.getItem("token") || "") : "";
+              
+              if (pType === 'image') return <img src={`${baseUrl}/thumbnail/${previewItem.id}/?token=${tokenStr}&w=1200&h=1200`} alt={previewItem.name} className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl" />;
+              if (pType === 'video') return <video src={`${baseUrl}/download/${previewItem.id}/?token=${tokenStr}`} controls autoPlay className="max-w-full max-h-[85vh] rounded-lg shadow-2xl bg-black" />;
+              if (pType === 'audio') return <audio src={`${baseUrl}/download/${previewItem.id}/?token=${tokenStr}`} controls autoPlay className="w-full max-w-md" />;
+              if (pType === 'pdf') return <iframe src={`${baseUrl}/download/${previewItem.id}/?token=${tokenStr}#toolbar=0`} className="w-full h-[85vh] max-w-6xl rounded-lg bg-white" />;
+              return (
+                <div className="flex flex-col items-center py-12 text-white/40">
+                  <File className="w-20 h-20 mb-4 opacity-50" />
+                  <p className="text-sm text-center">Preview not available for this file type.</p>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

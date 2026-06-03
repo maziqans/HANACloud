@@ -22,6 +22,7 @@ urlpatterns = [
     path('api/create-folder/', views.create_folder, name='create_folder'),
     path('api/download/<int:file_id>/', views.download_file, name='download_file'),
     path('api/thumbnail/<int:file_id>/', views.file_thumbnail, name='file_thumbnail'),
+    path('api/download-folder/<int:folder_id>/', views.download_folder, name='download_folder'),
     
     path('api/recent/', views.recent_items, name='recent_items'),
     path('api/starred/', views.starred_items, name='starred_items'),
