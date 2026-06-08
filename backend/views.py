@@ -483,6 +483,29 @@ def file_thumbnail(request, file_id):
     try:
         from PIL import Image, ImageOps
         source_field = cloud_file.thumbnail if cloud_file.thumbnail else cloud_file.file
+        
+        if not cloud_file.thumbnail and cloud_file.category == 'VIDEO' and cloud_file.file:
+            import subprocess
+            import tempfile
+            from io import BytesIO
+            with tempfile.NamedTemporaryFile(suffix='.jpg') as temp_thumb:
+                video_path = cloud_file.file.path
+                subprocess.run([
+                    'ffmpeg', '-i', video_path, '-ss', '00:00:01.000', '-vframes', '1',
+                    '-y', temp_thumb.name
+                ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                
+                img = Image.open(temp_thumb.name)
+                img.thumbnail((400, 400))
+                if img.mode != 'RGB':
+                    img = img.convert('RGB')
+                thumb_io = BytesIO()
+                img.save(thumb_io, format='WEBP', quality=65)
+                from django.core.files.base import ContentFile
+                cloud_file.thumbnail.save(f"thumb.webp", ContentFile(thumb_io.getvalue()), save=False)
+                cloud_file.save(update_fields=['thumbnail'])
+            source_field = cloud_file.thumbnail
+            
         if not source_field:
             raise FileNotFoundError()
             

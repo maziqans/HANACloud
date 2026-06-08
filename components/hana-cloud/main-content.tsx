@@ -452,52 +452,84 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
 
     setUploads(prev => [...prev, ...newUploads.map(u => ({ id: u.id, filename: u.filename, progress: 0, complete: false }))])
 
-    // Upload files sequentially one by one
-    for (const upload of newUploads) {
-      const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks to bypass ANY server/proxy limits
-      const totalChunks = Math.ceil(upload.file.size / CHUNK_SIZE);
+    const CONCURRENCY_LIMIT = 3;
+    let activeIndex = 0;
 
-      try {
-        if (totalChunks <= 1) {
-          const formData = new FormData()
-          formData.append("files", upload.file, upload.filename)
-          formData.append("paths", upload.path)
-          
-          await api.uploadFiles(formData, currentParentId, (progressEvent) => {
-            const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
-            setUploads(prev => prev.map(u => u.id === upload.id ? { ...u, progress: percentCompleted } : u))
-          })
-        } else {
-          for (let i = 0; i < totalChunks; i++) {
-            const chunk = upload.file.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
-            const formData = new FormData();
-            formData.append("files", chunk, upload.filename);
-            formData.append("paths", upload.path);
-            formData.append("chunk_index", i.toString());
-            formData.append("total_chunks", totalChunks.toString());
-            formData.append("file_id", upload.id);
-            formData.append("filename", upload.filename);
-            
-            await api.uploadFiles(formData, currentParentId, () => {});
-            
-            const percentCompleted = Math.round(((i + 1) * 100) / totalChunks);
-            setUploads(prev => prev.map(u => u.id === upload.id ? { ...u, progress: percentCompleted } : u))
+    const runWorker = async () => {
+      while (activeIndex < newUploads.length) {
+        const upload = newUploads[activeIndex++];
+        const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks to bypass ANY server/proxy limits
+        const totalChunks = Math.ceil(upload.file.size / CHUNK_SIZE);
+
+        try {
+          if (totalChunks <= 1) {
+            let retries = 3;
+            while (retries > 0) {
+              try {
+                const formData = new FormData()
+                formData.append("files", upload.file, upload.filename)
+                formData.append("paths", upload.path)
+                
+                await api.uploadFiles(formData, currentParentId, (progressEvent) => {
+                  let percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || upload.file.size));
+                  if (percentCompleted >= 100) percentCompleted = 99; // Reserve 100% until success
+                  setUploads(prev => prev.map(u => u.id === upload.id ? { ...u, progress: percentCompleted } : u))
+                })
+                break; // Success
+              } catch (err) {
+                retries--;
+                if (retries === 0) throw err;
+                await new Promise(r => setTimeout(r, 2000));
+              }
+            }
+          } else {
+            for (let i = 0; i < totalChunks; i++) {
+              let chunkRetries = 3;
+              while (chunkRetries > 0) {
+                try {
+                  const chunk = upload.file.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+                  const formData = new FormData();
+                  formData.append("files", chunk, upload.filename);
+                  formData.append("paths", upload.path);
+                  formData.append("chunk_index", i.toString());
+                  formData.append("total_chunks", totalChunks.toString());
+                  formData.append("file_id", upload.id);
+                  formData.append("filename", upload.filename);
+                  
+                  await api.uploadFiles(formData, currentParentId, (progressEvent) => {
+                    const chunkLoaded = progressEvent.loaded;
+                    const totalLoaded = (i * CHUNK_SIZE) + chunkLoaded;
+                    let percentCompleted = Math.round((totalLoaded * 100) / upload.file.size);
+                    if (percentCompleted >= 100) percentCompleted = 99; // Reserve 100% until backend saves it
+                    setUploads(prev => prev.map(u => u.id === upload.id ? { ...u, progress: percentCompleted } : u))
+                  });
+                  break; // Success
+                } catch (err) {
+                  chunkRetries--;
+                  if (chunkRetries === 0) throw err;
+                  await new Promise(r => setTimeout(r, 2000));
+                }
+              }
+            }
           }
+          
+          setUploads(prev => prev.map(u => u.id === upload.id ? { ...u, complete: true, progress: 100 } : u))
+          await loadItemsRef.current(true)
+          window.dispatchEvent(new Event("storageUpdated"))
+        } catch (error) {
+          console.error("Failed to upload file:", upload.filename, error)
+          setUploads(prev => prev.map(u => u.id === upload.id ? { ...u, error: "Failed" } : u))
         }
         
-        setUploads(prev => prev.map(u => u.id === upload.id ? { ...u, complete: true, progress: 100 } : u))
-        await loadItemsRef.current(true)
-        window.dispatchEvent(new Event("storageUpdated"))
-      } catch (error) {
-        console.error("Failed to upload file:", upload.filename, error)
-        setUploads(prev => prev.map(u => u.id === upload.id ? { ...u, error: "Failed" } : u))
+        // Remove completed uploads from UI after 5 seconds
+        setTimeout(() => {
+          setUploads(prev => prev.filter(u => u.id !== upload.id))
+        }, 5000)
       }
-      
-      // Remove completed uploads from UI after 5 seconds
-      setTimeout(() => {
-        setUploads(prev => prev.filter(u => u.id !== upload.id))
-      }, 5000)
-    }
+    };
+
+    const workers = Array(Math.min(CONCURRENCY_LIMIT, newUploads.length)).fill(null).map(() => runWorker());
+    await Promise.all(workers);
   }
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1083,8 +1115,8 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
                           isTrash={activeSection === "Trash"}
                           isStarred={item.is_starred}
                           canEdit={item.can_edit !== false}
-                          previewUrl={getPreviewType(item.name) === 'image' ? `${api.getBaseUrl()}/thumbnail/${item.id}/?token=${getToken()}` : undefined}
-                          previewType={getPreviewType(item.name) === 'image' ? 'image' : undefined}
+                          previewUrl={['image', 'video'].includes(getPreviewType(item.name) || '') ? `${api.getBaseUrl()}/thumbnail/${item.id}/?token=${getToken()}` : undefined}
+                          previewType={['image', 'video'].includes(getPreviewType(item.name) || '') ? 'image' : undefined}
                           onSelect={toggleSelection}
                           onDoubleClick={handleDoubleClick}
                           onToggleStar={toggleStar}
@@ -1127,7 +1159,7 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
                     </div>
                     <div className="divide-y divide-border/50">
                       {files.map((file) => (
-                        <FileRow key={file.id} id={file.id} name={file.name} type={getFileType(file.name)} size={formatBytes(file.size_bytes)} modified={file.updated_at ? new Date(file.updated_at).toLocaleDateString() : "—"} selected={selectedItems.has(`file-${file.id}`)} onSelect={toggleSelection} onDoubleClick={handleDoubleClick} isStarred={file.is_starred} onToggleStar={toggleStar} isTrash={activeSection === "Trash"} onDownload={handleDownload} onShare={handleShare} onDelete={requestDelete} onRestore={handleRestore} onPermanentDelete={requestDelete} canEdit={file.can_edit !== false} previewUrl={ getPreviewType(file.name) === 'image' ? `${api.getBaseUrl()}/thumbnail/${file.id}/?token=${getToken()}` : undefined } previewType={getPreviewType(file.name) === 'image' ? 'image' : undefined} />
+                        <FileRow key={file.id} id={file.id} name={file.name} type={getFileType(file.name)} size={formatBytes(file.size_bytes)} modified={file.updated_at ? new Date(file.updated_at).toLocaleDateString() : "—"} selected={selectedItems.has(`file-${file.id}`)} onSelect={toggleSelection} onDoubleClick={handleDoubleClick} isStarred={file.is_starred} onToggleStar={toggleStar} isTrash={activeSection === "Trash"} onDownload={handleDownload} onShare={handleShare} onDelete={requestDelete} onRestore={handleRestore} onPermanentDelete={requestDelete} canEdit={file.can_edit !== false} previewUrl={ ['image', 'video'].includes(getPreviewType(file.name) || '') ? `${api.getBaseUrl()}/thumbnail/${file.id}/?token=${getToken()}` : undefined } previewType={['image', 'video'].includes(getPreviewType(file.name) || '') ? 'image' : undefined} />
                       ))}
                     </div>
                   </div>

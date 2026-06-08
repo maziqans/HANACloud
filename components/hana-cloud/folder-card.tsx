@@ -47,13 +47,13 @@ export const FolderCard = React.memo(function FolderCard({
       onClick={() => onClick?.(id)}
       onDoubleClick={() => onDoubleClick?.(id)}
       className={cn(
-        "group relative p-4 rounded-2xl cursor-pointer transition-all duration-200 bg-card border border-border cozy-shadow selectable-item touch-manipulation h-full",
+        "group relative p-4 rounded-2xl cursor-pointer transition-all duration-200 bg-card border border-border cozy-shadow selectable-item touch-manipulation h-full flex flex-col",
         "hover:border-primary/20 hover:shadow-md",
         selected && "cozy-selected border-primary/30"
       )}
     >
       {/* Folder Icon */}
-      <div className="w-full aspect-[4/3] mb-3 flex items-center justify-center">
+      <div className="w-full flex-1 min-h-0 mb-3 flex items-center justify-center">
         <div className="w-16 h-14 rounded-xl folder-cozy flex items-center justify-center">
           <Folder 
             className="w-8 h-8 text-[oklch(0.55_0.14_55)]" 
@@ -64,7 +64,7 @@ export const FolderCard = React.memo(function FolderCard({
       </div>
 
       {/* Folder Info */}
-      <div>
+      <div className="shrink-0">
         <h3 className="text-sm font-medium text-foreground truncate">
           {name}
         </h3>
