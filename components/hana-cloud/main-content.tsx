@@ -452,13 +452,13 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
 
     setUploads(prev => [...prev, ...newUploads.map(u => ({ id: u.id, filename: u.filename, progress: 0, complete: false }))])
 
-    const CONCURRENCY_LIMIT = 3;
+    const CONCURRENCY_LIMIT = 6; // Maximize browser connection pool limits
     let activeIndex = 0;
 
     const runWorker = async () => {
       while (activeIndex < newUploads.length) {
         const upload = newUploads[activeIndex++];
-        const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks to bypass ANY server/proxy limits
+        const CHUNK_SIZE = 50 * 1024 * 1024; // 50MB chunks to massively speed up large file uploads
         const totalChunks = Math.ceil(upload.file.size / CHUNK_SIZE);
 
         try {

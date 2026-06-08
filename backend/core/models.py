@@ -82,56 +82,8 @@ class CloudFile(models.Model):
             ext = os.path.splitext(self.name)[1].lower()
             if ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']:
                 self.category = 'IMAGE'
-                
-                # Generate highly compressed thumbnail to save massive bandwidth/space
-                try:
-                    img = Image.open(self.file)
-                    img.thumbnail((400, 400)) # Maintain aspect ratio, max 400px
-                    if img.mode != 'RGB':
-                        img = img.convert('RGB')
-                    thumb_io = BytesIO()
-                    img.save(thumb_io, format='WEBP', quality=65) # Extremely efficient 65% quality
-                    self.thumbnail.save(f"thumb.webp", ContentFile(thumb_io.getvalue()), save=False)
-                except Exception:
-                    pass
             elif ext in ['.mp4', '.mov', '.avi', '.mkv', '.webm']:
                 self.category = 'VIDEO'
-                try:
-                    import subprocess
-                    import tempfile
-                    
-                    video_path = getattr(self.file, 'temporary_file_path', None)
-                    if video_path:
-                        video_path = video_path()
-                    elif hasattr(self.file, 'file') and hasattr(self.file.file, 'name') and os.path.exists(self.file.file.name):
-                        video_path = self.file.file.name
-                    else:
-                        temp_video = tempfile.NamedTemporaryFile(delete=False, suffix=ext)
-                        for chunk in self.file.chunks():
-                            temp_video.write(chunk)
-                        temp_video.close()
-                        video_path = temp_video.name
-                        
-                    try:
-                        with tempfile.NamedTemporaryFile(suffix='.jpg') as temp_thumb:
-                            subprocess.run([
-                                'ffmpeg', '-i', video_path, '-ss', '00:00:01.000', '-vframes', '1',
-                                '-y', temp_thumb.name
-                            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
-                            
-                            img = Image.open(temp_thumb.name)
-                            img.thumbnail((400, 400))
-                            if img.mode != 'RGB':
-                                img = img.convert('RGB')
-                            thumb_io = BytesIO()
-                            img.save(thumb_io, format='WEBP', quality=65)
-                            self.thumbnail.save(f"thumb.webp", ContentFile(thumb_io.getvalue()), save=False)
-                    finally:
-                        if not hasattr(self.file, 'temporary_file_path') and not (hasattr(self.file, 'file') and hasattr(self.file.file, 'name') and video_path == self.file.file.name):
-                            if os.path.exists(video_path):
-                                os.remove(video_path)
-                except Exception:
-                    pass
             elif ext in ['.pdf', '.doc', '.docx', '.txt', '.xls', '.xlsx']:
                 self.category = 'DOCUMENT'
             else:
