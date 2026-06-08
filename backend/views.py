@@ -505,6 +505,18 @@ def file_thumbnail(request, file_id):
                 cloud_file.thumbnail.save(f"thumb.webp", ContentFile(thumb_io.getvalue()), save=False)
                 cloud_file.save(update_fields=['thumbnail'])
             source_field = cloud_file.thumbnail
+        elif not cloud_file.thumbnail and cloud_file.category == 'IMAGE' and cloud_file.file:
+            from io import BytesIO
+            img = Image.open(cloud_file.file)
+            img.thumbnail((400, 400))
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            thumb_io = BytesIO()
+            img.save(thumb_io, format='WEBP', quality=65)
+            from django.core.files.base import ContentFile
+            cloud_file.thumbnail.save(f"thumb.webp", ContentFile(thumb_io.getvalue()), save=False)
+            cloud_file.save(update_fields=['thumbnail'])
+            source_field = cloud_file.thumbnail
             
         if not source_field:
             raise FileNotFoundError()
