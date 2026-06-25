@@ -405,7 +405,7 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
     if (!files.length) return
     
     const existingNames = currentItems.map((item) => item.name)
-    const filesToUpload: { file: File, finalName: string, path: string }[] = []
+    const filesToUpload: { file: File, finalName: string }[] = []
 
     for (const file of files) {
       let finalName = file.name
@@ -425,15 +425,7 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
       }
 
       if (skip) continue
-
-      let path = file.webkitRelativePath || file.name
-      if (finalName !== file.name) {
-        const pathParts = path.split('/')
-        pathParts[pathParts.length - 1] = finalName
-        path = pathParts.join('/')
-      }
-
-      filesToUpload.push({ file, finalName, path })
+      filesToUpload.push({ file, finalName })
     }
 
     if (filesToUpload.length === 0) {
@@ -447,88 +439,78 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
       progress: 0,
       complete: false,
       file: f.file,
-      path: f.path
     }))
 
     setUploads(prev => [...prev, ...newUploads.map(u => ({ id: u.id, filename: u.filename, progress: 0, complete: false }))])
 
-    const CONCURRENCY_LIMIT = 6; // Maximize browser connection pool limits
-    let activeIndex = 0;
+    // --- Google Drive-style upload queue ---
+    // Use array copy + shift for thread-safe queue (no shared mutable index)
+    const queue = [...newUploads];
+    const MAX_RETRIES = 5;
+    const CONCURRENCY = 3; // Matches USB HDD throughput — 3 streams saturate ~100MB/s without contention
 
     const runWorker = async () => {
-      while (activeIndex < newUploads.length) {
-        const upload = newUploads[activeIndex++];
-        const CHUNK_SIZE = 50 * 1024 * 1024; // 50MB chunks to massively speed up large file uploads
-        const totalChunks = Math.ceil(upload.file.size / CHUNK_SIZE);
+      while (queue.length > 0) {
+        const upload = queue.shift();
+        if (!upload) break;
 
-        try {
-          if (totalChunks <= 1) {
-            let retries = 3;
-            while (retries > 0) {
-              try {
-                const formData = new FormData()
-                formData.append("files", upload.file, upload.filename)
-                formData.append("paths", upload.path)
-                
-                await api.uploadFiles(formData, currentParentId, (progressEvent) => {
-                  let percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || upload.file.size));
-                  if (percentCompleted >= 100) percentCompleted = 99; // Reserve 100% until success
-                  setUploads(prev => prev.map(u => u.id === upload.id ? { ...u, progress: percentCompleted } : u))
-                })
-                break; // Success
-              } catch (err) {
-                retries--;
-                if (retries === 0) throw err;
-                await new Promise(r => setTimeout(r, 2000));
-              }
-            }
-          } else {
-            for (let i = 0; i < totalChunks; i++) {
-              let chunkRetries = 3;
-              while (chunkRetries > 0) {
-                try {
-                  const chunk = upload.file.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
-                  const formData = new FormData();
-                  formData.append("files", chunk, upload.filename);
-                  formData.append("paths", upload.path);
-                  formData.append("chunk_index", i.toString());
-                  formData.append("total_chunks", totalChunks.toString());
-                  formData.append("file_id", upload.id);
-                  formData.append("filename", upload.filename);
-                  
-                  await api.uploadFiles(formData, currentParentId, (progressEvent) => {
-                    const chunkLoaded = progressEvent.loaded;
-                    const totalLoaded = (i * CHUNK_SIZE) + chunkLoaded;
-                    let percentCompleted = Math.round((totalLoaded * 100) / upload.file.size);
-                    if (percentCompleted >= 100) percentCompleted = 99; // Reserve 100% until backend saves it
-                    setUploads(prev => prev.map(u => u.id === upload.id ? { ...u, progress: percentCompleted } : u))
-                  });
-                  break; // Success
-                } catch (err) {
-                  chunkRetries--;
-                  if (chunkRetries === 0) throw err;
-                  await new Promise(r => setTimeout(r, 2000));
-                }
-              }
+        let lastError: any = null;
+
+        for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+          try {
+            await api.uploadSingleFile(
+              upload.file,
+              upload.filename,
+              currentParentId,
+              (progressEvent) => {
+                let percentCompleted = Math.round(
+                  (progressEvent.loaded * 100) / (progressEvent.total || upload.file.size)
+                );
+                if (percentCompleted >= 100) percentCompleted = 99; // Reserve 100% until server confirms
+                setUploads(prev =>
+                  prev.map(u => u.id === upload.id ? { ...u, progress: percentCompleted } : u)
+                );
+              },
+            );
+
+            // Success — mark complete
+            setUploads(prev =>
+              prev.map(u => u.id === upload.id ? { ...u, complete: true, progress: 100 } : u)
+            );
+            lastError = null;
+            break; // Exit retry loop on success
+
+          } catch (err) {
+            lastError = err;
+            if (attempt < MAX_RETRIES) {
+              // Exponential backoff with jitter: min(2^attempt * 1000 + random(0-1000)ms, 30s)
+              const delay = Math.min(Math.pow(2, attempt) * 1000 + Math.random() * 1000, 30000);
+              await new Promise(r => setTimeout(r, delay));
             }
           }
-          
-          setUploads(prev => prev.map(u => u.id === upload.id ? { ...u, complete: true, progress: 100 } : u))
-          await loadItemsRef.current(true)
-          window.dispatchEvent(new Event("storageUpdated"))
-        } catch (error) {
-          console.error("Failed to upload file:", upload.filename, error)
-          setUploads(prev => prev.map(u => u.id === upload.id ? { ...u, error: "Failed" } : u))
         }
-        
-        // Remove completed uploads from UI after 5 seconds
+
+        if (lastError) {
+          console.error("Failed to upload file after retries:", upload.filename, lastError);
+          setUploads(prev =>
+            prev.map(u => u.id === upload.id ? { ...u, error: "Failed" } : u)
+          );
+        }
+
+        // Refresh file list after each file completes (success or fail)
+        await loadItemsRef.current(true);
+        window.dispatchEvent(new Event("storageUpdated"));
+
+        // Remove from UI after 5 seconds
+        const uploadId = upload.id;
         setTimeout(() => {
-          setUploads(prev => prev.filter(u => u.id !== upload.id))
+          setUploads(prev => prev.filter(u => u.id !== uploadId))
         }, 5000)
       }
     };
 
-    const workers = Array(Math.min(CONCURRENCY_LIMIT, newUploads.length)).fill(null).map(() => runWorker());
+    // Launch concurrent workers
+    const workers = Array(Math.min(CONCURRENCY, newUploads.length)).fill(null).map(() => runWorker());
     await Promise.all(workers);
   }
 

@@ -18,6 +18,7 @@ urlpatterns = [
     path('api/drive/', views.drive_items, name='drive_items'),
     path('api/drive/<int:item_id>/', views.move_to_trash, name='move_to_trash'),
     path('api/drive/star/<int:item_id>/', views.toggle_star, name='toggle_star'),
+    path('api/upload/single/', views.upload_single, name='upload_single'),
     path('api/upload/', views.upload_files, name='upload_files'),
     path('api/create-folder/', views.create_folder, name='create_folder'),
     path('api/download/<int:file_id>/', views.download_file, name='download_file'),

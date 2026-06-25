@@ -159,58 +159,106 @@ def drive_items(request):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
-def upload_files(request):
+def upload_single(request):
+    """Google Drive-style single-file streaming upload.
+    
+    Each request uploads exactly 1 file. Django's TemporaryFileUploadHandler streams
+    the file directly to disk (never buffers the whole file in RAM). We then use
+    os.rename() for zero-copy final placement — no double-write.
+    """
     parent_id = request.data.get('parent_id')
     parent = None
     if parent_id and parent_id != 'null':
         parent = get_object_or_404(CloudFile, id=parent_id)
         if not check_edit_access(request.user, parent):
             return Response({"error": "You do not have editor permission for this folder"}, status=403)
-        
-    chunk_index = request.data.get('chunk_index')
-    total_chunks = request.data.get('total_chunks')
+
+    files_list = request.FILES.getlist('file')
+    if not files_list:
+        return Response({"error": "No file provided"}, status=400)
     
-    if chunk_index is not None and total_chunks is not None:
-        from django.conf import settings
-        import shutil
+    uploaded_file = files_list[0]
+    filename = request.data.get('filename') or uploaded_file.name
+    
+    from django.conf import settings
+    import shutil
+    
+    # Build the final directory path mirroring the folder structure
+    path_parts = []
+    curr = parent
+    while curr:
+        path_parts.insert(0, curr.name)
+        curr = curr.parent
+    
+    user_dir = os.path.join(settings.MEDIA_ROOT, f'user_{request.user.username}')
+    final_dir = os.path.join(user_dir, *path_parts) if path_parts else user_dir
+    os.makedirs(final_dir, exist_ok=True)
+    
+    final_path = os.path.join(final_dir, filename)
+    
+    # Handle name collisions on disk
+    base, ext = os.path.splitext(filename)
+    counter = 1
+    while os.path.exists(final_path):
+        final_path = os.path.join(final_dir, f"{base} ({counter}){ext}")
+        counter += 1
+    
+    # Stream the uploaded file to its final location
+    # For TemporaryUploadedFile (>2MB): os.rename() is instant (zero-copy, same filesystem)
+    # For InMemoryUploadedFile (<2MB): write chunks to disk
+    try:
+        if hasattr(uploaded_file, 'temporary_file_path'):
+            # Large file: already on disk as a temp file. Atomic move = instant, no double-write
+            temp_path = uploaded_file.temporary_file_path()
+            shutil.move(temp_path, final_path)
+        else:
+            # Small file (<2MB): held in memory, write to disk
+            with open(final_path, 'wb') as dest:
+                for chunk in uploaded_file.chunks():
+                    dest.write(chunk)
         
-        chunk_index = int(chunk_index)
-        total_chunks = int(total_chunks)
-        file_id = request.data.get('file_id')
-        filename = request.data.get('filename')
+        # Create the database record pointing to the file on disk (no Django FileField copy)
+        relative_path = os.path.relpath(final_path, settings.MEDIA_ROOT)
+        file_size = os.path.getsize(final_path)
         
-        files_list = request.FILES.getlist('files')
-        if not files_list:
-            return Response({"error": "No file chunk provided"}, status=400)
-        chunk = files_list[0]
+        cloud_file = CloudFile(
+            user=request.user,
+            parent=parent,
+            name=filename,
+            file_size=file_size,
+        )
+        # Set the file field to point at the existing file without re-uploading it
+        cloud_file.file.name = relative_path
+        cloud_file.save()
         
-        temp_dir = os.path.join(settings.MEDIA_ROOT, 'tmp', str(file_id))
-        os.makedirs(temp_dir, exist_ok=True)
-        
-        chunk_path = os.path.join(temp_dir, str(chunk_index))
-        with open(chunk_path, 'wb+') as f:
-            for data in chunk.chunks():
-                f.write(data)
-                
-        if len(os.listdir(temp_dir)) == total_chunks:
-            final_path = os.path.join(settings.MEDIA_ROOT, 'tmp', f"final_{file_id}")
-            with open(final_path, 'wb+') as dest_file:
-                for i in range(total_chunks):
-                    part_path = os.path.join(temp_dir, str(i))
-                    if os.path.exists(part_path):
-                        with open(part_path, 'rb') as source_file:
-                            dest_file.write(source_file.read())
-            
-            from django.core.files import File
-            with open(final_path, 'rb') as f:
-                django_file = File(f, name=filename)
-                CloudFile.objects.create(user=request.user, file=django_file, parent=parent, name=filename)
-            
-            shutil.rmtree(temp_dir, ignore_errors=True)
-            if os.path.exists(final_path):
+        return Response({
+            "message": "File uploaded successfully",
+            "id": str(cloud_file.id),
+            "name": cloud_file.name,
+        })
+    except Exception as e:
+        # Clean up partial file on failure
+        if os.path.exists(final_path):
+            try:
                 os.remove(final_path)
-            
-        return Response({"message": "Chunk processed"})
+            except OSError:
+                pass
+        return Response({"error": f"Upload failed: {str(e)}"}, status=500)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def upload_files(request):
+    """Backwards-compatible multi-file upload endpoint (fallback).
+    
+    Kept for compatibility. The primary upload path is upload_single.
+    """
+    parent_id = request.data.get('parent_id')
+    parent = None
+    if parent_id and parent_id != 'null':
+        parent = get_object_or_404(CloudFile, id=parent_id)
+        if not check_edit_access(request.user, parent):
+            return Response({"error": "You do not have editor permission for this folder"}, status=403)
         
     for f in request.FILES.getlist('files'):
         CloudFile.objects.create(user=request.user, file=f, parent=parent)

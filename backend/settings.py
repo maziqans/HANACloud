@@ -106,10 +106,18 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOW_ALL_ORIGINS = True
 
 # --- LARGE FILE UPLOAD SETTINGS ---
-# Route large file chunks to the persistent storage volume instead of the tiny container /tmp disk
+# Route large uploads to the persistent storage volume instead of the tiny container /tmp disk
 FILE_UPLOAD_TEMP_DIR = os.path.join(MEDIA_ROOT, 'tmp')
 os.makedirs(FILE_UPLOAD_TEMP_DIR, exist_ok=True)
 
-# Increase Django's body and upload limits to 5GB
+# Force streaming: files > 2MB go directly to disk via TemporaryUploadedFile
+# This prevents RAM exhaustion when multiple files upload concurrently
+FILE_UPLOAD_HANDLERS = [
+    'django.core.files.uploadhandler.TemporaryFileUploadHandler',
+    'django.core.files.uploadhandler.MemoryFileUploadHandler',
+]
+
+# Max allowed request body size (5GB ceiling for very large files)
 DATA_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024 * 1024  # 5 GB
-FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024        # 10 MB (Files larger than this stream directly to disk)
+# Files larger than 2MB stream directly to disk (not held in RAM)
+FILE_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024          # 2 MB

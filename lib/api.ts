@@ -41,6 +41,35 @@ export const uploadFiles = async (formData: FormData, parentId: string | null, o
       'Content-Type': 'multipart/form-data',
     },
     onUploadProgress: onProgress,
+    timeout: 30 * 60 * 1000, // 30 minutes
+  });
+  return response.data;
+};
+
+/**
+ * Google Drive-style single-file streaming upload.
+ * Sends exactly 1 file per request. The backend streams it to disk without buffering.
+ * Supports AbortController for cancellation and 30-minute timeout.
+ */
+export const uploadSingleFile = async (
+  file: File,
+  filename: string,
+  parentId: string | null,
+  onProgress?: (progressEvent: any) => void,
+  signal?: AbortSignal,
+) => {
+  const formData = new FormData();
+  formData.append('file', file, filename);
+  formData.append('filename', filename);
+  if (parentId) formData.append('parent_id', parentId);
+
+  const response = await apiClient.post('/upload/single/', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+    onUploadProgress: onProgress,
+    timeout: 30 * 60 * 1000, // 30 minutes — allows large files over USB HDD
+    signal,
   });
   return response.data;
 };
