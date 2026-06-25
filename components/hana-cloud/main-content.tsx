@@ -1097,8 +1097,14 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
                           isTrash={activeSection === "Trash"}
                           isStarred={item.is_starred}
                           canEdit={item.can_edit !== false}
-                          previewUrl={['image', 'video'].includes(getPreviewType(item.name) || '') ? `${api.getBaseUrl()}/thumbnail/${item.id}/?token=${getToken()}` : undefined}
-                          previewType={['image', 'video'].includes(getPreviewType(item.name) || '') ? 'image' : undefined}
+                          previewUrl={
+                            getPreviewType(item.name) === 'pdf'
+                              ? `${api.getBaseUrl()}/download/${item.id}/?token=${getToken()}`
+                              : ['image', 'video'].includes(getPreviewType(item.name) || '')
+                                ? `${api.getBaseUrl()}/thumbnail/${item.id}/?token=${getToken()}`
+                                : undefined
+                          }
+                          previewType={getPreviewType(item.name) === 'pdf' ? 'pdf' : ['image', 'video'].includes(getPreviewType(item.name) || '') ? 'image' : undefined}
                           onSelect={toggleSelection}
                           onDoubleClick={handleDoubleClick}
                           onToggleStar={toggleStar}
@@ -1141,7 +1147,7 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
                     </div>
                     <div className="divide-y divide-border/50">
                       {files.map((file) => (
-                        <FileRow key={file.id} id={file.id} name={file.name} type={getFileType(file.name)} size={formatBytes(file.size_bytes)} modified={file.updated_at ? new Date(file.updated_at).toLocaleDateString() : "—"} selected={selectedItems.has(`file-${file.id}`)} onSelect={toggleSelection} onDoubleClick={handleDoubleClick} isStarred={file.is_starred} onToggleStar={toggleStar} isTrash={activeSection === "Trash"} onDownload={handleDownload} onShare={handleShare} onDelete={requestDelete} onRestore={handleRestore} onPermanentDelete={requestDelete} canEdit={file.can_edit !== false} previewUrl={ ['image', 'video'].includes(getPreviewType(file.name) || '') ? `${api.getBaseUrl()}/thumbnail/${file.id}/?token=${getToken()}` : undefined } previewType={['image', 'video'].includes(getPreviewType(file.name) || '') ? 'image' : undefined} />
+                        <FileRow key={file.id} id={file.id} name={file.name} type={getFileType(file.name)} size={formatBytes(file.size_bytes)} modified={file.updated_at ? new Date(file.updated_at).toLocaleDateString() : "—"} selected={selectedItems.has(`file-${file.id}`)} onSelect={toggleSelection} onDoubleClick={handleDoubleClick} isStarred={file.is_starred} onToggleStar={toggleStar} isTrash={activeSection === "Trash"} onDownload={handleDownload} onShare={handleShare} onDelete={requestDelete} onRestore={handleRestore} onPermanentDelete={requestDelete} canEdit={file.can_edit !== false} previewUrl={ getPreviewType(file.name) === 'pdf' ? `${api.getBaseUrl()}/download/${file.id}/?token=${getToken()}` : ['image', 'video'].includes(getPreviewType(file.name) || '') ? `${api.getBaseUrl()}/thumbnail/${file.id}/?token=${getToken()}` : undefined } previewType={getPreviewType(file.name) === 'pdf' ? 'pdf' : ['image', 'video'].includes(getPreviewType(file.name) || '') ? 'image' : undefined} />
                       ))}
                     </div>
                   </div>
@@ -1750,11 +1756,20 @@ const FilePreviewModal = React.memo(() => {
           >
             {/* Blurry Low-Res Thumbnail */}
             <img src={`${api.getBaseUrl()}/thumbnail/${previewItem.id}/?token=${getToken()}&w=400&h=400`} alt={previewItem.name} className={cn("absolute max-w-full max-h-full object-contain rounded-lg shadow-2xl transition-opacity duration-700", isHighResLoaded ? "opacity-0" : "opacity-100 blur-xl")} />
-            {/* High-Res Image */}
-            <img src={`${api.getBaseUrl()}/download/${previewItem.id}/?token=${getToken()}`} alt={previewItem.name} onLoad={() => setIsHighResLoaded(true)} draggable={false} className={cn("absolute max-w-full max-h-full object-contain rounded-lg shadow-2xl transition-opacity duration-700", isHighResLoaded ? "opacity-100" : "opacity-0")} />
+            {/* Optimized Preview — 1200px is sharp enough for detail without downloading the full resolution file */}
+            <img src={`${api.getBaseUrl()}/thumbnail/${previewItem.id}/?token=${getToken()}&w=1200&h=1200`} alt={previewItem.name} onLoad={() => setIsHighResLoaded(true)} draggable={false} className={cn("absolute max-w-full max-h-full object-contain rounded-lg shadow-2xl transition-opacity duration-700", isHighResLoaded ? "opacity-100" : "opacity-0")} />
           </div>
         )}
         {previewType === 'video' && <div className="w-full h-full max-w-6xl max-h-[85vh] flex items-center justify-center"><video controls autoPlay src={`${api.getBaseUrl()}/download/${previewItem.id}/?token=${getToken()}`} className="max-w-full max-h-full rounded-lg shadow-2xl bg-black" /></div>}
+        {previewType === 'pdf' && (
+          <div className="w-full h-full max-w-6xl max-h-[85vh] flex items-center justify-center p-4">
+            <iframe 
+              src={`${api.getBaseUrl()}/download/${previewItem.id}/?token=${getToken()}#toolbar=1&navpanes=0`} 
+              className="w-full h-full rounded-xl shadow-2xl bg-white border-0" 
+              title={previewItem.name}
+            />
+          </div>
+        )}
         {previewType === 'audio' && (
           <div className="w-full h-full max-w-6xl max-h-[85vh] flex items-center justify-center">
             <div className="bg-black/40 backdrop-blur-md p-10 rounded-3xl shadow-2xl flex flex-col items-center gap-8 w-full max-w-md border border-white/10">
