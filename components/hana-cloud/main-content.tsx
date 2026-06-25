@@ -1098,13 +1098,11 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
                           isStarred={item.is_starred}
                           canEdit={item.can_edit !== false}
                           previewUrl={
-                            getPreviewType(item.name) === 'pdf'
-                              ? `${api.getBaseUrl()}/download/${item.id}/?token=${getToken()}`
-                              : ['image', 'video'].includes(getPreviewType(item.name) || '')
-                                ? `${api.getBaseUrl()}/thumbnail/${item.id}/?token=${getToken()}`
-                                : undefined
+                            ['image', 'video', 'pdf'].includes(getPreviewType(item.name) || '')
+                              ? `${api.getBaseUrl()}/thumbnail/${item.id}/?token=${getToken()}`
+                              : undefined
                           }
-                          previewType={getPreviewType(item.name) === 'pdf' ? 'pdf' : ['image', 'video'].includes(getPreviewType(item.name) || '') ? 'image' : undefined}
+                          previewType={['image', 'video', 'pdf'].includes(getPreviewType(item.name) || '') ? 'image' : undefined}
                           onSelect={toggleSelection}
                           onDoubleClick={handleDoubleClick}
                           onToggleStar={toggleStar}
@@ -1147,7 +1145,7 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
                     </div>
                     <div className="divide-y divide-border/50">
                       {files.map((file) => (
-                        <FileRow key={file.id} id={file.id} name={file.name} type={getFileType(file.name)} size={formatBytes(file.size_bytes)} modified={file.updated_at ? new Date(file.updated_at).toLocaleDateString() : "—"} selected={selectedItems.has(`file-${file.id}`)} onSelect={toggleSelection} onDoubleClick={handleDoubleClick} isStarred={file.is_starred} onToggleStar={toggleStar} isTrash={activeSection === "Trash"} onDownload={handleDownload} onShare={handleShare} onDelete={requestDelete} onRestore={handleRestore} onPermanentDelete={requestDelete} canEdit={file.can_edit !== false} previewUrl={ getPreviewType(file.name) === 'pdf' ? `${api.getBaseUrl()}/download/${file.id}/?token=${getToken()}` : ['image', 'video'].includes(getPreviewType(file.name) || '') ? `${api.getBaseUrl()}/thumbnail/${file.id}/?token=${getToken()}` : undefined } previewType={getPreviewType(file.name) === 'pdf' ? 'pdf' : ['image', 'video'].includes(getPreviewType(file.name) || '') ? 'image' : undefined} />
+                        <FileRow key={file.id} id={file.id} name={file.name} type={getFileType(file.name)} size={formatBytes(file.size_bytes)} modified={file.updated_at ? new Date(file.updated_at).toLocaleDateString() : "—"} selected={selectedItems.has(`file-${file.id}`)} onSelect={toggleSelection} onDoubleClick={handleDoubleClick} isStarred={file.is_starred} onToggleStar={toggleStar} isTrash={activeSection === "Trash"} onDownload={handleDownload} onShare={handleShare} onDelete={requestDelete} onRestore={handleRestore} onPermanentDelete={requestDelete} canEdit={file.can_edit !== false} previewUrl={ ['image', 'video', 'pdf'].includes(getPreviewType(file.name) || '') ? `${api.getBaseUrl()}/thumbnail/${file.id}/?token=${getToken()}` : undefined } previewType={['image', 'video', 'pdf'].includes(getPreviewType(file.name) || '') ? 'image' : undefined} />
                       ))}
                     </div>
                   </div>

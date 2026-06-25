@@ -8,6 +8,7 @@ from django.db.models import Sum, Count, Q
 import os
 from core.models import CloudFile, UserProfile, FileAccess, AccessRequest
 from django.contrib.auth.models import User
+from django.views.decorators.clickjacking import xframe_options_exempt
 
 def check_edit_access(user, folder):
     """Helper to check if a user is allowed to modify files inside a target folder."""
@@ -565,6 +566,27 @@ def file_thumbnail(request, file_id):
             cloud_file.thumbnail.save(f"thumb.webp", ContentFile(thumb_io.getvalue()), save=False)
             cloud_file.save(update_fields=['thumbnail'])
             source_field = cloud_file.thumbnail
+        elif not cloud_file.thumbnail and cloud_file.file and cloud_file.file.name.lower().endswith('.pdf'):
+            import fitz
+            from io import BytesIO
+            
+            doc = fitz.open(cloud_file.file.path)
+            page = doc.load_page(0)
+            
+            # Scale down to save memory before Pillow resizing
+            pix = page.get_pixmap(matrix=fitz.Matrix(0.5, 0.5))
+            
+            # Convert PyMuPDF pixmap to Pillow Image
+            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+            img.thumbnail((400, 400))
+            
+            thumb_io = BytesIO()
+            img.save(thumb_io, format='WEBP', quality=65)
+            
+            from django.core.files.base import ContentFile
+            cloud_file.thumbnail.save(f"thumb.webp", ContentFile(thumb_io.getvalue()), save=False)
+            cloud_file.save(update_fields=['thumbnail'])
+            source_field = cloud_file.thumbnail
             
         if not source_field:
             raise FileNotFoundError()
@@ -590,6 +612,7 @@ def file_thumbnail(request, file_id):
 
 @api_view(['GET'])
 @permission_classes([AllowAny]) # Standard HTML anchor links won't pass JWT headers easily
+@xframe_options_exempt
 def download_file(request, file_id):
     cloud_file = get_object_or_404(CloudFile, id=file_id)
     
