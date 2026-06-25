@@ -447,7 +447,7 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
     // Use array copy + shift for thread-safe queue (no shared mutable index)
     const queue = [...newUploads];
     const MAX_RETRIES = 5;
-    const CONCURRENCY = 3; // Matches USB HDD throughput — 3 streams saturate ~100MB/s without contention
+    const CONCURRENCY = 6; // Safe with gevent async workers — maximizes browser connection pool
 
     const runWorker = async () => {
       while (queue.length > 0) {
