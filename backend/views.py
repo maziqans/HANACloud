@@ -717,6 +717,30 @@ def download_folder(request, folder_id):
 
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
+def rename_item(request, item_id):
+    item = get_object_or_404(CloudFile, id=item_id)
+    if item.user != request.user:
+        has_edit = False
+        accessible_ids = set(FileAccess.objects.filter(user=request.user, role='EDITOR').values_list('file_id', flat=True))
+        if item.id in accessible_ids:
+            has_edit = True
+        elif check_edit_access(request.user, item.parent):
+            has_edit = True
+            
+        if not has_edit:
+            return Response({"error": "No permission to rename"}, status=403)
+            
+    new_name = request.data.get('name')
+    if not new_name:
+        return Response({"error": "Name is required"}, status=400)
+        
+    item.name = new_name
+    item.save(update_fields=['name', 'updated_at'])
+    return Response({"message": "Item renamed successfully", "id": item.id, "name": item.name})
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
 def move_to_trash(request, item_id):
     item = get_object_or_404(CloudFile, id=item_id)
     if item.user != request.user:

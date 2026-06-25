@@ -128,6 +128,23 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">(globalStateCache.sortDirection)
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   const [currentItems, setCurrentItems] = useState<CloudItem[]>(initialItems || [])
+  
+  const handleRenameSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!itemToRename || !renameInput.trim()) return;
+    setIsRenaming(true);
+    try {
+      await api.renameItem(itemToRename.id, renameInput.trim());
+      await loadItems();
+      setNavStack(prev => prev.map(n => n.id === itemToRename.id ? {...n, name: renameInput.trim()} : n));
+      setRenameModalOpen(false);
+    } catch (err: any) {
+      setGenericAlert({ title: "Error", message: err?.response?.data?.error || "Failed to rename" });
+    } finally {
+      setIsRenaming(false);
+    }
+  };
+
   const [uploads, setUploads] = useState<{ id: string, filename: string, progress: number, complete: boolean, error?: string }[]>([])
   const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false)
   const [newFolderName, setNewFolderName] = useState("")
@@ -163,8 +180,17 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
   const [permissionWarning, setPermissionWarning] = useState(false)
   const [isFolderMenuOpen, setIsFolderMenuOpen] = useState(false)
   const [isTypeFilterOpen, setIsTypeFilterOpen] = useState(false)
+  const [typeFilter, setTypeFilter] = useState<string | null>(null)
   const [pendingRequests, setPendingRequests] = useState<any[]>([])
   const [showRequests, setShowRequests] = useState(false)
+
+  const [renameModalOpen, setRenameModalOpen] = useState(false)
+  const [itemToRename, setItemToRename] = useState<{id: string, name: string} | null>(null)
+  const [renameInput, setRenameInput] = useState("")
+  const [isRenaming, setIsRenaming] = useState(false)
+
+  const [folderInfoModalOpen, setFolderInfoModalOpen] = useState(false)
+  const [folderInfoItem, setFolderInfoItem] = useState<any>(null)
 
   const [folderPicker, setFolderPicker] = useState<{
     isOpen: boolean;
@@ -551,10 +577,28 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
     }
   };
 
-  // Apply Search Filtering
-  const filteredItems = useMemo(() => currentItems.filter(item => 
-    (item?.name || "").toLowerCase().includes(searchQuery.toLowerCase())
-  ), [currentItems, searchQuery]);
+  // Apply Search & Type Filtering
+  const filteredItems = useMemo(() => currentItems.filter(item => {
+    const matchesSearch = (item?.name || "").toLowerCase().includes(searchQuery.toLowerCase());
+    if (!matchesSearch) return false;
+    
+    if (typeFilter) {
+      if (typeFilter === "Folders") return item.item_type === "FOLDER";
+      
+      const fileType = getFileType(item.name || "");
+      if (typeFilter === "Documents") return fileType === "document";
+      if (typeFilter === "Photos & images") return fileType === "image";
+      if (typeFilter === "Videos") return fileType === "video";
+      
+      const lowerName = (item.name || "").toLowerCase();
+      if (typeFilter === "Spreadsheets") return lowerName.endsWith(".xls") || lowerName.endsWith(".xlsx") || lowerName.endsWith(".csv");
+      if (typeFilter === "Presentations") return lowerName.endsWith(".ppt") || lowerName.endsWith(".pptx");
+      if (typeFilter === "PDFs") return lowerName.endsWith(".pdf");
+      if (typeFilter === "Archives (zip)") return lowerName.endsWith(".zip") || lowerName.endsWith(".rar") || lowerName.endsWith(".7z") || lowerName.endsWith(".tar") || lowerName.endsWith(".gz");
+    }
+    
+    return true;
+  }), [currentItems, searchQuery, typeFilter]);
 
   // Apply Sorting
   const sortedItems = useMemo(() => [...filteredItems].sort((a, b) => {
@@ -853,10 +897,19 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
           <div className="relative">
             <button
               onClick={() => setIsTypeFilterOpen(!isTypeFilterOpen)}
-              className="flex items-center gap-2 px-4 py-1.5 border border-border rounded-full hover:bg-secondary text-sm text-foreground font-medium transition-colors relative z-50"
+              className={cn("flex items-center gap-2 px-4 py-1.5 border rounded-full text-sm font-medium transition-colors relative z-50",
+                typeFilter ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-secondary text-foreground"
+              )}
             >
-              <span>Type</span>
-              <ChevronDown className={cn("w-4 h-4 transition-transform", isTypeFilterOpen && "rotate-180")} />
+              <span>{typeFilter || "Type"}</span>
+              {typeFilter ? (
+                <X 
+                  className="w-3.5 h-3.5 ml-1 hover:opacity-70" 
+                  onClick={(e) => { e.stopPropagation(); setTypeFilter(null); }} 
+                />
+              ) : (
+                <ChevronDown className={cn("w-4 h-4 transition-transform", isTypeFilterOpen && "rotate-180")} />
+              )}
             </button>
 
             {isTypeFilterOpen && (
@@ -875,11 +928,14 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
                   ].map((type, idx) => (
                     <button
                       key={idx}
-                      onClick={() => setIsTypeFilterOpen(false)}
-                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors text-left"
+                      onClick={() => { setTypeFilter(type.label); setIsTypeFilterOpen(false); }}
+                      className={cn("w-full flex items-center gap-3 px-4 py-2 text-sm transition-colors text-left",
+                        typeFilter === type.label ? "bg-secondary text-foreground font-medium" : "text-foreground hover:bg-secondary"
+                      )}
                     >
-                      <type.icon className="w-4 h-4 text-muted-foreground shrink-0" />
+                      <type.icon className={cn("w-4 h-4 shrink-0", typeFilter === type.label ? "text-primary" : "text-muted-foreground")} />
                       <span className="truncate">{type.label}</span>
+                      {typeFilter === type.label && <CheckCircle2 className="w-4 h-4 ml-auto text-primary" />}
                     </button>
                   ))}
                 </div>
@@ -906,12 +962,6 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
                       <div className="fixed inset-0 z-40 cursor-default" onClick={() => setIsFolderMenuOpen(false)} />
                       <div className="absolute top-full left-0 mt-1 w-56 bg-white shadow-lg rounded-xl py-2 z-50 text-slate-800 border border-slate-200 font-normal text-base">
                         <button onClick={() => { setIsFolderMenuOpen(false); window.dispatchEvent(new Event("createFolder")); }} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">New folder</button>
-                        <button onClick={() => setIsFolderMenuOpen(false)} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">Download</button>
-                        <button onClick={() => setIsFolderMenuOpen(false)} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">Rename</button>
-                        <button onClick={() => setIsFolderMenuOpen(false)} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">Share</button>
-                        <button onClick={() => setIsFolderMenuOpen(false)} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">Folder information</button>
-                        <div className="h-px bg-slate-200 my-2" />
-                        <button onClick={() => setIsFolderMenuOpen(false)} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-slate-100 transition-colors">Move to trash</button>
                       </div>
                     </>
                   )}
@@ -942,9 +992,9 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
                           <div className="absolute top-full left-0 mt-1 w-56 bg-white shadow-lg rounded-xl py-2 z-50 text-slate-800 border border-slate-200 font-normal text-base">
                             <button onClick={() => { setIsFolderMenuOpen(false); window.dispatchEvent(new Event("createFolder")); }} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">New folder</button>
                             <button onClick={() => { setIsFolderMenuOpen(false); handleDownloadFolder(nav.id); }} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">Download</button>
-                            <button onClick={() => setIsFolderMenuOpen(false)} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">Rename</button>
+                            <button onClick={() => { setIsFolderMenuOpen(false); setItemToRename({id: nav.id, name: nav.name}); setRenameInput(nav.name); setRenameModalOpen(true); }} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">Rename</button>
                             <button onClick={() => { setIsFolderMenuOpen(false); handleShare(nav.id); }} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">Share</button>
-                            <button onClick={() => setIsFolderMenuOpen(false)} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">Folder information</button>
+                            <button onClick={() => { setIsFolderMenuOpen(false); setFolderInfoItem(nav); setFolderInfoModalOpen(true); }} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">Folder information</button>
                             <div className="h-px bg-slate-200 my-2" />
                             <button onClick={() => { setIsFolderMenuOpen(false); requestDelete(nav.id, false); }} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-slate-100 transition-colors">Move to trash</button>
                           </div>
@@ -1641,6 +1691,78 @@ export function MainContent({ activeSection = "My Drive", user, initialItems }: 
             >
               Close
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Rename Modal */}
+      {renameModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[140] flex items-center justify-center p-4">
+          <div className="bg-popover text-popover-foreground w-full max-w-md rounded-2xl shadow-xl overflow-hidden border border-border">
+            <div className="px-6 py-5 border-b border-border">
+              <h3 className="text-lg font-semibold">Rename</h3>
+            </div>
+            <form onSubmit={handleRenameSubmit} className="p-6">
+              <input
+                type="text"
+                autoFocus
+                value={renameInput}
+                onChange={(e) => setRenameInput(e.target.value)}
+                className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                placeholder="Enter new name"
+              />
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setRenameModalOpen(false)}
+                  className="px-4 py-2 text-sm font-medium hover:bg-secondary rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isRenaming || !renameInput.trim() || renameInput === itemToRename?.name}
+                  className="px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 disabled:opacity-50 transition-colors"
+                >
+                  {isRenaming ? "Saving..." : "OK"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Folder Information Modal */}
+      {folderInfoModalOpen && folderInfoItem && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[140] flex items-center justify-center p-4">
+          <div className="bg-popover text-popover-foreground w-full max-w-md rounded-2xl shadow-xl overflow-hidden border border-border">
+            <div className="px-6 py-5 border-b border-border flex justify-between items-center">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <Folder className="w-5 h-5 text-blue-500" />
+                Folder Information
+              </h3>
+              <button onClick={() => setFolderInfoModalOpen(false)} className="p-1 hover:bg-secondary rounded-full transition-colors">
+                <X className="w-5 h-5 text-muted-foreground" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="break-all">
+                <p className="text-sm text-muted-foreground mb-1">Name</p>
+                <p className="font-medium text-foreground">{folderInfoItem.name}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Contents</p>
+                <p className="font-medium text-foreground">{folderInfoItem.item_count === 1 ? '1 item' : `${folderInfoItem.item_count || 0} items`}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Total Size</p>
+                <p className="font-medium text-foreground">{formatBytes(folderInfoItem.size_bytes || 0)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Last Modified</p>
+                <p className="font-medium text-foreground">{folderInfoItem.updated_at ? new Date(folderInfoItem.updated_at).toLocaleString() : '—'}</p>
+              </div>
+            </div>
           </div>
         </div>
       )}

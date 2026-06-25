@@ -30,6 +30,7 @@ urlpatterns = [
     path('api/trash/', views.trash_items, name='trash_items'),
     path('api/trash/empty/', views.empty_trash, name='empty_trash'),
     path('api/drive/permanent/<int:item_id>/', views.permanent_delete, name='permanent_delete'),
+    path('api/rename/<str:item_id>/', views.rename_item, name='rename_item'),
     
     path('api/profile/', views.profile_settings, name='profile_settings'),
     path('api/storage/summary/', views.storage_summary, name='storage_summary'),

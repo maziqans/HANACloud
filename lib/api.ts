@@ -118,6 +118,11 @@ export const permanentDelete = async (itemId: string) => {
   return response.data;
 }
 
+export const renameItem = async (itemId: string, newName: string) => {
+  const response = await apiClient.patch(`/rename/${itemId}/`, { name: newName });
+  return response.data;
+}
+
 export const createFolder = async (name: string, parentId: string | null) => {
   const response = await apiClient.post('/create-folder/', { name, parent_id: parentId });
   return response.data;
