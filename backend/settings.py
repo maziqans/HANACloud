@@ -8,6 +8,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-dev-key-change-in-prod')
 DEBUG = True
 ALLOWED_HOSTS = ['*'] # Accept connections from Coolify proxy
+CSRF_TRUSTED_ORIGINS = ['https://cloud-api.hanacasa.my']
 
 # Application definition
 INSTALLED_APPS = [
