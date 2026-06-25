@@ -18,7 +18,10 @@ import {
   User,
   ShieldAlert,
   ArrowLeft,
+  Sun,
+  Moon,
 } from "lucide-react"
+import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
 import { StorageBar } from "./storage-bar"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
@@ -55,6 +58,7 @@ export function Sidebar({ onNavigate, activeItem = "My Drive", user, onLogout }:
   const [canEdit, setCanEdit] = useState(true)
   const [isMobileOpen, setIsMobileOpen] = useState(false)
   const profileRef = useRef<HTMLDivElement>(null)
+  const { theme, setTheme } = useTheme()
 
   // Close profile dropdown when clicking outside
   useEffect(() => {
@@ -250,6 +254,16 @@ export function Sidebar({ onNavigate, activeItem = "My Drive", user, onLogout }:
               >
                 <Settings className="w-4 h-4 text-sidebar-muted" strokeWidth={1.5} />
                 <span className="text-sm">Account Settings</span>
+              </button>
+              <button 
+                onClick={() => {
+                  setTheme(theme === 'dark' ? 'light' : 'dark');
+                  setProfileOpen(false);
+                }}
+                className="w-full px-4 py-3 flex items-center gap-3 text-sidebar-foreground hover:bg-sidebar-accent transition-colors text-left"
+              >
+                {theme === 'dark' ? <Sun className="w-4 h-4 text-sidebar-muted" strokeWidth={1.5} /> : <Moon className="w-4 h-4 text-sidebar-muted" strokeWidth={1.5} />}
+                <span className="text-sm">{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
               </button>
               <div className="h-px bg-sidebar-border mx-3" />
               <button 

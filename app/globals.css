@@ -346,3 +346,47 @@
 .pulse-on-select {
   animation: gentle-pulse 300ms ease;
 }
+
+/* ------------------------------------------------------------- */
+/* DARK MODE / HOTEL THEME OVERRIDES                             */
+/* ------------------------------------------------------------- */
+.dark { color-scheme: dark; }
+.dark .bg-background { background-color: transparent !important; }
+.dark .bg-card { background-color: rgba(255, 255, 255, 0.03) !important; backdrop-filter: blur(16px) !important; border-color: rgba(255, 255, 255, 0.08) !important; color: white !important; }
+.dark .bg-card\/50 { background-color: rgba(255, 255, 255, 0.02) !important; }
+.dark .bg-popover { background-color: rgba(0, 0, 0, 0.7) !important; backdrop-filter: blur(24px) !important; border-color: rgba(255, 255, 255, 0.1) !important; color: white !important; }
+.dark .bg-sidebar { background-color: rgba(0, 0, 0, 0.2) !important; backdrop-filter: blur(20px) !important; border-color: rgba(255, 255, 255, 0.05) !important; }
+
+.dark .bg-secondary { background-color: rgba(255, 255, 255, 0.05) !important; color: white !important; }
+.dark .bg-secondary\/50, .dark .bg-secondary\/30, .dark .bg-secondary\/20 { background-color: rgba(255, 255, 255, 0.03) !important; }
+.dark .hover\:bg-secondary:hover, .dark .hover\:bg-secondary\/50:hover { background-color: rgba(255, 255, 255, 0.1) !important; }
+
+.dark .bg-primary { background-color: white !important; color: #0f172a !important; }
+.dark .hover\:bg-primary\/90:hover { background-color: rgba(255, 255, 255, 0.9) !important; }
+.dark .text-primary { color: white !important; }
+.dark .text-primary-foreground { color: #0f172a !important; }
+
+.dark .border-border, .dark .border-sidebar-border, .dark .border-border\/50, .dark .border-border\/40 { border-color: rgba(255, 255, 255, 0.1) !important; }
+
+.dark .text-foreground, .dark .text-sidebar-foreground { color: white !important; }
+.dark .text-muted-foreground { color: rgba(255, 255, 255, 0.6) !important; }
+
+.dark .data-\[active\=true\]\:bg-sidebar-accent[data-active=true] { background-color: rgba(255, 255, 255, 0.1) !important; color: white !important; }
+.dark .hover\:bg-sidebar-accent:hover { background-color: rgba(255, 255, 255, 0.1) !important; color: white !important; }
+
+.dark input[type="text"], .dark input[type="password"] { 
+  background-color: rgba(255, 255, 255, 0.05) !important; 
+  color: white !important; 
+  border-color: rgba(255, 255, 255, 0.1) !important; 
+}
+.dark input[type="text"]:focus, .dark input[type="password"]:focus { 
+  border-color: white !important; 
+  outline: none !important; 
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.3) !important; 
+}
+.dark input::placeholder { color: rgba(255, 255, 255, 0.4) !important; }
+
+.dark .cozy-button { background-color: white !important; color: #0f172a !important; box-shadow: 0 0 15px rgba(255,255,255,0.1) !important; text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.75rem !important; }
+.dark .cozy-button:hover { box-shadow: 0 0 25px rgba(255,255,255,0.2) !important; background-color: rgba(255,255,255,0.9) !important; }
+
+.dark .bg-primary\/10 { background-color: rgba(255, 255, 255, 0.1) !important; border-color: rgba(255, 255, 255, 0.4) !important; }

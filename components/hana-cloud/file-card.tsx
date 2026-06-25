@@ -101,7 +101,7 @@ export const FileCard = React.memo(function FileCard({
       )}
     >
       {/* Thumbnail Area */}
-      <div className="w-full h-40 bg-black/20 flex items-center justify-center relative rounded-t-xl overflow-hidden shrink-0">
+      <div className="w-full flex-1 min-h-0 bg-black/20 flex items-center justify-center relative rounded-t-xl overflow-hidden">
         {previewUrl && previewType ? (
           <>
             {previewType === 'image' && (
